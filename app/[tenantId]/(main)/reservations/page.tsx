@@ -16,6 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
 import { toast } from "@/components/ui/toast";
+import { format } from "date-fns";
 
 export default function ReservationsPage() {
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -25,10 +26,12 @@ export default function ReservationsPage() {
     reservations, 
     tables, 
     sections,
+    selectedDate,
     isLoading,
     error,
     fetchReservations,
-    fetchSections
+    fetchSections,
+    setSelectedDate
   } = useReservationStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showReservationModal, setShowReservationModal] = useState(false);
@@ -57,9 +60,15 @@ export default function ReservationsPage() {
   useEffect(() => {
     if (params?.tenantId) {
       fetchReservationsList();
-      fetchSections(); // Bölümleri de yükle
+      fetchSections();
     }
   }, [params?.tenantId, fetchReservations, fetchSections]);
+
+  useEffect(() => {
+    if (date) {
+      setSelectedDate(date);
+    }
+  }, [date, setSelectedDate]);
 
   const handleEdit = (reservation: any) => {
     setSelectedReservation(reservation);
@@ -76,13 +85,15 @@ export default function ReservationsPage() {
   const filteredReservations = reservations.filter(reservation => {
     const matchesSection = selectedSection === 'all' || reservation.sectionId === selectedSection;
     const matchesStatus = selectedStatus === 'all' || reservation.status === selectedStatus;
+    const reservationDate = new Date(reservation.reservationDate);
+    const matchesDate = format(reservationDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch = searchQuery === '' || 
       reservation.customerName.toLowerCase().includes(searchLower) ||
       reservation.customerPhone.toLowerCase().includes(searchLower) ||
       reservation.tableName.toLowerCase().includes(searchLower);
 
-    return matchesSection && matchesStatus && matchesSearch;
+    return matchesSection && matchesStatus && matchesSearch && matchesDate;
   });
 
   const groupedReservations = filteredReservations.reduce((groups: Record<string, any[]>, reservation) => {

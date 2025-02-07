@@ -41,8 +41,10 @@ interface ReservationStore {
   reservations: Reservation[];
   tables: Table[];
   sections: Section[];
+  selectedDate: Date;
   isLoading: boolean;
   error: string | null;
+  setSelectedDate: (date: Date) => void;
   fetchReservations: () => Promise<void>;
   fetchSections: () => Promise<void>;
   addReservation: (reservation: Omit<Reservation, 'id'>) => Promise<void>;
@@ -55,8 +57,10 @@ export const useReservationStore = create<ReservationStore>((set, get) => ({
   reservations: [],
   tables: [],
   sections: [],
+  selectedDate: new Date(),
   isLoading: false,
   error: null,
+  setSelectedDate: (date: Date) => set({ selectedDate: date }),
   fetchSections: async () => {
     try {
       const response = await api.get(`/api/postgres/list-sections`);

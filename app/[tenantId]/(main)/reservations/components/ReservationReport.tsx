@@ -1,305 +1,256 @@
 "use client";
 
-import { useState } from "react";
-import { Calendar } from "@/components/ui/calendar";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card } from "@/components/ui/card";
-import { useReservationStore } from "@/stores/reservation-store";
-import { 
-  format, 
-  startOfWeek, 
-  endOfWeek, 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval,
-  addDays,
-  addWeeks,
-  addMonths,
-  subDays,
-  subWeeks,
-  subMonths
-} from "date-fns";
+import { useEffect, useState } from "react";
+import { format, addDays } from "date-fns";
 import { tr } from "date-fns/locale";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Building2, Phone, Users, Clock, CalendarIcon, UtensilsCrossed, ChevronLeft, ChevronRight } from "lucide-react";
-import { LocationType } from "@/types/reservation-types";
+import { useReservationStore } from "@/stores/reservation-store";
+import api from "@/lib/axios";
+import { 
+  Loader2, 
+  Search, 
+  ChevronLeft, 
+  ChevronRight,
+  Calendar,
+  Filter
+} from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface DaySchedule {
-  date: Date;
-  reservations: any[];
+interface Reservation {
+  id: number;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  party_size: number;
+  reservation_date: string;
+  reservation_time: string;
+  table_name: string;
+  table_capacity: number;
+  section_name: string;
+  status: string;
+  notes: string;
+  specialnotes: string;
+  is_smoking: boolean;
+  is_outdoor: boolean;
 }
 
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'confirmed':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400';
-    case 'pending':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400';
-    case 'cancelled':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400';
-  }
-};
+interface PaginationData {
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
 
-const getLocationLabel = (location: LocationType) => {
-  const labels = {
-    salon: 'Salon',
-    terrace: 'Teras',
-    upstairs: 'Üst Kat'
-  };
-  return labels[location] || location;
-};
-
-const getStatusLabel = (status: string) => {
-  const labels = {
-    confirmed: 'Onaylandı',
-    pending: 'Bekliyor',
-    cancelled: 'İptal Edildi'
-  };
-  return labels[status as keyof typeof labels] || status;
-};
+const PAGE_SIZES = [10, 20, 50, 100];
 
 export function ReservationReport() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [view, setView] = useState<"day" | "week" | "month">("week");
-  const { reservations, tables } = useReservationStore();
+  const [loading, setLoading] = useState(true);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [pagination, setPagination] = useState<PaginationData>({ total: 0, page: 1, pageSize: 10, totalPages: 0 });
+  const [search, setSearch] = useState("");
+  const { selectedDate } = useReservationStore();
+  const [endDate, setEndDate] = useState<Date>(addDays(selectedDate, 7));
 
-  const navigateDate = (direction: 'prev' | 'next') => {
-    switch (view) {
-      case 'day':
-        setSelectedDate(direction === 'prev' ? subDays(selectedDate, 1) : addDays(selectedDate, 1));
-        break;
-      case 'week':
-        setSelectedDate(direction === 'prev' ? subWeeks(selectedDate, 1) : addWeeks(selectedDate, 1));
-        break;
-      case 'month':
-        setSelectedDate(direction === 'prev' ? subMonths(selectedDate, 1) : addMonths(selectedDate, 1));
-        break;
+  const fetchReportData = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/api/postgres/reservation-report', {
+        params: {
+          startDate: format(selectedDate, 'yyyy-MM-dd'),
+          endDate: format(endDate, 'yyyy-MM-dd'),
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          search: search || undefined
+        }
+      });
+      
+      if (response.data.success) {
+        setReservations(response.data.data.reservations);
+        setPagination(response.data.data.pagination);
+      } else {
+        console.error('Error in response:', response.data.error);
+      }
+    } catch (error) {
+      console.error('Error fetching report data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const getReservationsForDateRange = (start: Date, end: Date) => {
-    return reservations.filter(reservation => {
-      const reservationDate = new Date(reservation.date);
-      return reservationDate >= start && reservationDate <= end;
-    });
-  };
+  useEffect(() => {
+    fetchReportData();
+  }, [selectedDate, endDate, pagination.page, pagination.pageSize, search]);
 
-  const getDaySchedule = (date: Date): DaySchedule => {
-    const dayReservations = reservations.filter(
-      reservation => reservation.date === format(date, "yyyy-MM-dd")
-    );
-    return {
-      date,
-      reservations: dayReservations,
-    };
-  };
-
-  const getSchedule = () => {
-    let start: Date;
-    let end: Date;
-
-    switch (view) {
-      case "day":
-        return [getDaySchedule(selectedDate)];
-      case "week":
-        start = startOfWeek(selectedDate, { locale: tr });
-        end = endOfWeek(selectedDate, { locale: tr });
-        break;
-      case "month":
-        start = startOfMonth(selectedDate);
-        end = endOfMonth(selectedDate);
-        break;
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <Badge variant="success">Tamamlandı</Badge>;
+      case 'canceled':
+        return <Badge variant="destructive">İptal</Badge>;
+      default:
+        return <Badge variant="secondary">Bekliyor</Badge>;
     }
-
-    const days = eachDayOfInterval({ start, end });
-    return days.map(day => getDaySchedule(day));
-  };
-
-  const schedule = getSchedule();
-
-  const renderReservationCard = (reservation: any) => {
-    const table = tables.find(t => t.id === reservation.tableId);
-
-    return (
-      <Card key={reservation.id} className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="font-semibold">{reservation.customerName}</span>
-            <Badge variant="outline" className={getStatusColor(reservation.status)}>
-              {getStatusLabel(reservation.status)}
-            </Badge>
-          </div>
-          <Badge variant="outline" className="flex items-center gap-1">
-            <Clock className="w-3 h-3" />
-            {reservation.time}
-          </Badge>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4 text-sm">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Phone className="w-4 h-4" />
-              {reservation.phone}
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Users className="w-4 h-4" />
-              {reservation.persons} Kişi
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Building2 className="w-4 h-4" />
-              Masa {table?.name} ({getLocationLabel(table?.location)})
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <UtensilsCrossed className="w-4 h-4" />
-              {reservation.serviceType === 'alacarte' ? 'A La Carte' :
-               reservation.serviceType === 'fixmenu' ? 'Fix Menü' :
-               reservation.serviceType === 'standart' ? 'Standart' : 'Özel Menü'}
-            </div>
-          </div>
-        </div>
-
-        {(reservation.notes || reservation.specialRequests) && (
-          <div className="text-sm space-y-1 border-t pt-2 mt-2">
-            {reservation.notes && (
-              <div className="text-muted-foreground">
-                <span className="font-medium text-foreground">Not:</span> {reservation.notes}
-              </div>
-            )}
-            {reservation.specialRequests && (
-              <div className="text-muted-foreground">
-                <span className="font-medium text-foreground">Özel İstek:</span> {reservation.specialRequests}
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
-    );
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="border-b">
-        <div className="max-w-[1200px] mx-auto w-full">
-          <Tabs defaultValue={view} onValueChange={(v) => setView(v as "day" | "week" | "month")}>
-            <div className="flex items-center justify-between px-4 py-2">
-              <div className="flex items-center gap-4 flex-wrap">
-                <TabsList className="h-9">
-                  <TabsTrigger value="day" className="px-3">Gün</TabsTrigger>
-                  <TabsTrigger value="week" className="px-3">Hafta</TabsTrigger>
-                  <TabsTrigger value="month" className="px-3">Ay</TabsTrigger>
-                </TabsList>
-
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateDate('prev')}
-                    className="h-9 w-9 p-0"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className="sr-only">Önceki {view === 'day' ? 'Gün' : view === 'week' ? 'Hafta' : 'Ay'}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigateDate('next')}
-                    className="h-9 w-9 p-0"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                    <span className="sr-only">Sonraki {view === 'day' ? 'Gün' : view === 'week' ? 'Hafta' : 'Ay'}</span>
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setSelectedDate(new Date())}
-                  className="h-9"
-                >
-                  Bugün
-                </Button>
-                <div className="text-sm font-medium min-w-[120px] text-right">
-                  {format(selectedDate, "MMMM yyyy", { locale: tr })}
-                </div>
-              </div>
-            </div>
-          </Tabs>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-[calc(100vh-180px)]">
-          <div className="max-w-[1200px] mx-auto w-full px-4">
-            <div className="space-y-6">
-              {schedule.map((day, index) => (
-                <div key={index} className="space-y-4">
-                  <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2">
-                    <div className="flex items-center justify-between">
-                      <h2 className="text-lg font-semibold">
-                        {format(day.date, "d MMMM EEEE", { locale: tr })}
-                      </h2>
-                      <Badge variant="secondary">
-                        {day.reservations.length} Rezervasyon
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    {day.reservations.map(reservation => renderReservationCard(reservation))}
-                    {day.reservations.length === 0 && (
-                      <div className="text-center py-8 text-muted-foreground">
-                        Bu güne ait rezervasyon bulunmuyor
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+    <div className="p-6 space-y-6">
+      {/* Filters */}
+      <Card className="p-4">
+        <div className="flex flex-col md:flex-row gap-4 items-end">
+          <div className="flex-1 space-y-2">
+            <label className="text-sm font-medium">Başlangıç Tarihi</label>
+            <Input
+              type="date"
+              value={format(selectedDate, 'yyyy-MM-dd')}
+              onChange={(e) => {
+                const date = new Date(e.target.value);
+                useReservationStore.setState({ selectedDate: date });
+              }}
+              className="w-full"
+            />
           </div>
-        </ScrollArea>
-      </div>
-
-      <div className="border-t">
-        <div className="max-w-[1200px] mx-auto w-full px-4 py-4">
-          <div className="flex justify-center">
-            <div className="w-full max-w-[400px]">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                locale={tr}
-                className="rounded-md border w-full bg-white"
-                classNames={{
-                  months: "w-full",
-                  month: "w-full",
-                  table: "w-full",
-                  head_row: "w-full",
-                  row: "w-full",
-                  cell: "w-10 h-10 p-0",
-                  day: "w-10 h-10 p-0 font-normal aria-selected:opacity-100",
-                  day_today: "bg-primary text-primary-foreground font-bold hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_outside: "text-muted-foreground opacity-50",
-                  day_disabled: "text-muted-foreground opacity-50",
-                  day_range_middle: "aria-selected:bg-accent aria-selected:text-accent-foreground",
-                  day_hidden: "invisible",
-                  nav_button: "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
-                  nav_button_previous: "absolute left-1",
-                  nav_button_next: "absolute right-1",
-                  caption: "pt-1 relative items-center justify-center",
-                }}
+          <div className="flex-1 space-y-2">
+            <label className="text-sm font-medium">Bitiş Tarihi</label>
+            <Input
+              type="date"
+              value={format(endDate, 'yyyy-MM-dd')}
+              onChange={(e) => {
+                const date = new Date(e.target.value);
+                setEndDate(date);
+              }}
+              className="w-full"
+            />
+          </div>
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Ara..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
               />
             </div>
           </div>
+          <div className="flex-none">
+            <Select
+              value={pagination.pageSize.toString()}
+              onValueChange={(value) => setPagination(prev => ({ ...prev, page: 1, pageSize: parseInt(value) }))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZES.map(size => (
+                  <SelectItem key={size} value={size.toString()}>
+                    {size} Adet
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-      </div>
+      </Card>
+
+      {/* Table */}
+      <Card className="overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow className="bg-muted/50">
+              <TableHead>Müşteri</TableHead>
+              <TableHead>Telefon</TableHead>
+              <TableHead className="text-center">Kişi</TableHead>
+              <TableHead>Tarih</TableHead>
+              <TableHead>Saat</TableHead>
+              <TableHead>Masa</TableHead>
+              <TableHead>Bölüm</TableHead>
+              <TableHead>Durum</TableHead>
+              <TableHead>Notlar</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              Array.from({ length: pagination.pageSize }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: 9 }).map((_, j) => (
+                    <TableCell key={j}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
+            ) : reservations.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="h-24 text-center">
+                  Rezervasyon bulunamadı
+                </TableCell>
+              </TableRow>
+            ) : (
+              reservations.map((reservation) => (
+                <TableRow key={reservation.id}>
+                  <TableCell className="font-medium">{reservation.customer_name}</TableCell>
+                  <TableCell>{reservation.customer_phone}</TableCell>
+                  <TableCell className="text-center">{reservation.party_size}</TableCell>
+                  <TableCell>{format(new Date(reservation.reservation_date), 'd MMM yyyy', { locale: tr })}</TableCell>
+                  <TableCell>{reservation.reservation_time}</TableCell>
+                  <TableCell>{reservation.table_name}</TableCell>
+                  <TableCell>{reservation.section_name}</TableCell>
+                  <TableCell>{getStatusBadge(reservation.status)}</TableCell>
+                  <TableCell className="max-w-[200px] truncate" title={reservation.specialnotes || reservation.notes}>
+                    {reservation.specialnotes || reservation.notes}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between px-4 py-4 border-t">
+          <div className="text-sm text-muted-foreground">
+            Toplam {pagination.total} rezervasyon
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+              disabled={pagination.page === 1 || loading}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="text-sm font-medium">
+              Sayfa {pagination.page} / {pagination.totalPages}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+              disabled={pagination.page === pagination.totalPages || loading}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }
