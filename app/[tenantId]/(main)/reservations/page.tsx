@@ -27,8 +27,7 @@ export default function ReservationsPage() {
     isLoading,
     error,
     fetchReservations,
-    fetchSections,
-    setTenantId 
+    fetchSections
   } = useReservationStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [showReservationModal, setShowReservationModal] = useState(false);
@@ -38,12 +37,11 @@ export default function ReservationsPage() {
 
   // Sayfa yüklendiğinde ve date değiştiğinde rezervasyonları çek
   useEffect(() => {
-    if (params.tenantId) {
-      setTenantId(params.tenantId as string);
+    if (params?.tenantId) {
       fetchReservations();
       fetchSections(); // Bölümleri de yükle
     }
-  }, [params.tenantId, setTenantId, fetchReservations, fetchSections]);
+  }, [params?.tenantId, fetchReservations, fetchSections]);
 
   const handleEdit = (reservation: any) => {
     setSelectedReservation(reservation);
@@ -58,30 +56,33 @@ export default function ReservationsPage() {
   };
 
   const filteredReservations = reservations.filter(reservation => {
-    const table = tables.find(t => t.table_id === reservation.table_id);
-    const matchesSection = selectedSection === 'all' || table?.section_id === selectedSection;
+    const matchesSection = selectedSection === 'all' || reservation.sectionId === selectedSection;
     const matchesStatus = selectedStatus === 'all' || reservation.status === selectedStatus;
-    const matchesSearch = reservation.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         reservation.customer_phone.includes(searchQuery) ||
-                         table?.table_name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesSearch = reservation?.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         reservation.customerPhone.includes(searchQuery) ||
+                         reservation.tableName?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesSection && matchesStatus && matchesSearch;
   });
 
   const groupedReservations = filteredReservations.reduce((groups: Record<string, any[]>, reservation) => {
-    const sectionName = reservation.section_name;
+    const sectionName = reservation.sectionName;
     
     if (!groups[sectionName]) {
       groups[sectionName] = [];
     }
     groups[sectionName].push({ 
-      ...reservation, 
-      table: tables.find(t => t.table_id === reservation.table_id),
+      ...reservation,
+      customer_name: reservation.customerName,
+      customer_phone: reservation.customerPhone,
+      party_size: reservation.guestCount,
+      reservation_id: reservation.id,
+      table: {
+        table_id: reservation.tableId,
+        table_name: reservation.tableName
+      },
       section: {
-        name: reservation.section_name,
-        description: reservation.section_description,
-        isSmoking: reservation.is_smoking,
-        isOutdoor: reservation.is_outdoor,
-        isVip: reservation.is_vip
+        name: reservation.sectionName,
+        id: reservation.sectionId
       }
     });
     return groups;

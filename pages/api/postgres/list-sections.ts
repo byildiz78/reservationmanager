@@ -1,7 +1,14 @@
+import { NextApiRequest, NextApiResponse } from 'next';
 import { pool } from "@/lib/postgre";
-import { NextResponse } from "next/server";
 
-export async function GET() {
+export default async function handler(
+    req: NextApiRequest,
+    res: NextApiResponse
+) {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
     try {
         const client = await pool.connect();
 
@@ -53,48 +60,29 @@ export async function GET() {
                 FROM sections s
                 LEFT JOIN tables t ON t.section_id = s.section_id
                 LEFT JOIN table_categories tc ON t.category_id = tc.category_id
-                WHERE s.is_active = true
-                GROUP BY s.section_id, s.section_name, s.description, s.capacity, s.is_smoking, s.is_outdoor, s.is_active
-                ORDER BY s.order_number, s.section_name
+                GROUP BY 
+                    s.section_id,
+                    s.section_name,
+                    s.description,
+                    s.capacity,
+                    s.is_smoking,
+                    s.is_outdoor,
+                    s.is_active
+                ORDER BY s.section_name;
             `);
 
-            return NextResponse.json({ 
+            return res.status(200).json({
                 success: true,
-                data: result.rows.map(row => ({
-                    id: row.section_id.toString(),
-                    name: row.section_name,
-                    capacity: row.capacity || 0,
-                    description: row.description,
-                    isSmoking: row.is_smoking,
-                    isOutdoor: row.is_outdoor,
-                    isActive: row.is_active,
-                    tables: row.tables.filter(table => table.table_id !== null).map(table => ({
-                        id: table.table_id.toString(),
-                        name: table.table_name,
-                        capacity: table.capacity,
-                        status: table.status,
-                        shape: table.shape,
-                        position: table.position,
-                        size: table.size,
-                        reservationStatus: table.reservation_status,
-                        category: {
-                            name: table.category_name,
-                            minCapacity: table.min_capacity,
-                            maxCapacity: table.max_capacity
-                        }
-                    }))
-                }))
+                data: result.rows
             });
-
         } finally {
             client.release();
         }
-
     } catch (error) {
-        console.error("List Sections Error:", error);
-        return NextResponse.json({ 
-            success: false, 
-            error: (error as Error).message 
-        }, { status: 500 });
+        console.error('Error in list-sections:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error'
+        });
     }
 }

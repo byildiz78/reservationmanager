@@ -1,18 +1,17 @@
+import { NextApiRequest, NextApiResponse } from 'next';
 import { pool } from "@/lib/postgre";
-import { NextResponse } from "next/server";
 
-export async function GET(request: Request) {
+export default async function handler(
+    req: NextApiRequest,
+    res: NextApiResponse
+) {
+    if (req.method !== 'GET') {
+        return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
     try {
-        const { searchParams } = new URL(request.url);
-        const tenantId = searchParams.get('tenantId');
-        const date = searchParams.get('date');
+        const { date } = req.query;
 
-        if (!tenantId) {
-            return NextResponse.json({ 
-                success: false, 
-                error: 'Branch ID gerekli' 
-            }, { status: 400 });
-        }
 
         const client = await pool.connect();
 
@@ -34,10 +33,9 @@ export async function GET(request: Request) {
                 FROM reservations r
                 LEFT JOIN tables t ON r.table_id = t.table_id
                 LEFT JOIN sections s ON t.section_id = s.section_id
-                WHERE r.branch_id = $1
             `;
 
-            const params = [tenantId];
+            const params = [];
 
             if (date) {
                 query += ` AND r.reservation_date = $2`;
@@ -48,20 +46,18 @@ export async function GET(request: Request) {
 
             const result = await client.query(query, params);
 
-            return NextResponse.json({ 
-                success: true, 
-                data: result.rows 
+            return res.status(200).json({ 
+                success: true,
+                data: result.rows
             });
-
         } finally {
             client.release();
         }
-
     } catch (error) {
-        console.error('Get Reservations Error:', error);
-        return NextResponse.json({ 
-            success: false, 
-            error: (error as Error).message 
-        }, { status: 500 });
+        console.error('Error in reservations:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error'
+        });
     }
 }

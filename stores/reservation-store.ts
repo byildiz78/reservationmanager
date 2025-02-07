@@ -3,17 +3,18 @@ import api from '@/lib/axios';
 
 // PostgreSQL types
 export interface Reservation {
-  id: string;
-  customer_name: string;
-  customer_phone: string;
-  party_size: number;
-  reservation_date: string;
-  reservation_time: string;
-  table_id: string;
+  id: number;
+  customerName: string;
+  customerPhone: string;
+  guestCount: number;
+  reservationDate: string;
+  reservationTime: string;
+  tableId: number;
+  tableName: string;
+  sectionId: number;
+  sectionName: string;
   status: string;
-  notes?: string;
-  table_name?: string;
-  section_name?: string;
+  specialnotes?: string;
 }
 
 export interface Table {
@@ -42,12 +43,11 @@ interface ReservationStore {
   sections: Section[];
   isLoading: boolean;
   error: string | null;
-  setTenantId: (id: string) => void;
   fetchReservations: () => Promise<void>;
   fetchSections: () => Promise<void>;
   addReservation: (reservation: Omit<Reservation, 'id'>) => Promise<void>;
-  updateReservation: (id: string, updates: Partial<Reservation>) => Promise<void>;
-  deleteReservation: (id: string) => Promise<void>;
+  updateReservation: (id: number, updates: Partial<Reservation>) => Promise<void>;
+  deleteReservation: (id: number) => Promise<void>;
 }
 
 export const useReservationStore = create<ReservationStore>((set, get) => ({
@@ -57,16 +57,7 @@ export const useReservationStore = create<ReservationStore>((set, get) => ({
   sections: [],
   isLoading: false,
   error: null,
-
-  setTenantId: (id: string) => set({ tenantId: id }),
-
   fetchSections: async () => {
-    const { tenantId } = get();
-    if (!tenantId) {
-      set({ error: 'Tenant ID bulunamadı' });
-      return;
-    }
-
     try {
       const response = await api.get(`/api/postgres/list-sections`);
       console.log('Sections Response:', response.data);
@@ -82,11 +73,6 @@ export const useReservationStore = create<ReservationStore>((set, get) => ({
   },
 
   fetchReservations: async () => {
-    const { tenantId } = get();
-    if (!tenantId) {
-      set({ error: 'Tenant ID bulunamadı' });
-      return;
-    }
 
     set({ isLoading: true, error: null });
     try {
