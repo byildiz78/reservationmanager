@@ -1,11 +1,13 @@
 "use client";
 
-import { CalendarIcon, ClockIcon, UsersIcon, TableIcon, PencilIcon } from "lucide-react";
+import { useState } from 'react';
+import { CalendarIcon, ClockIcon, UsersIcon, TableIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
+import { ReservationActions } from "./ReservationActions";
+import { ReservationForm } from "./ReservationForm";
 
 // PostgreSQL'deki reservation tablosu için type
 export interface Reservation {
@@ -70,85 +72,95 @@ const getSectionFeatures = (reservation: Reservation) => {
 };
 
 export function ReservationCard({ reservation, index, onEdit }: ReservationCardProps) {
+  const [showEditForm, setShowEditForm] = useState(false);
+
   // Tarih ve saat formatlaması
   const formattedDate = format(parseISO(reservation.reservationDate), 'dd MMMM yyyy', { locale: tr });
   const formattedTime = reservation.reservationTime.slice(0, 5); // HH:mm formatına çevirme
 
+  const handleEdit = () => {
+    setShowEditForm(true);
+    onEdit(reservation);
+  };
+
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
-      className="relative bg-card rounded-lg shadow-sm border overflow-hidden"
-    >
-      <div className="p-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <h3 className="font-semibold">
-              {reservation.customerName}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {reservation.customerPhone}
-            </p>
+    <>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+        className="relative bg-card rounded-lg shadow-sm border overflow-hidden"
+      >
+        <div className="p-4">
+          <div className="flex items-start justify-between">
+            <div>
+              <h3 className="font-semibold">
+                {reservation.customerName}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {reservation.customerPhone}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Badge 
+                variant={
+                  reservation.status === 'confirmed' ? 'default' :
+                  reservation.status === 'pending' ? 'secondary' :
+                  reservation.status === 'cancelled' ? 'destructive' :
+                  'outline'
+                }
+              >
+                {reservation.status === 'confirmed' ? 'Onaylandı' :
+                 reservation.status === 'pending' ? 'Beklemede' :
+                 reservation.status === 'cancelled' ? 'İptal' : 
+                 reservation.status}
+              </Badge>
+              <ReservationActions 
+                reservationId={reservation.id}
+                onEdit={handleEdit}
+              />
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <Badge 
-              variant={
-                reservation.status === 'confirmed' ? 'default' :
-                reservation.status === 'pending' ? 'secondary' :
-                reservation.status === 'cancelled' ? 'destructive' :
-                'outline'
-              }
-            >
-              {reservation.status === 'confirmed' ? 'Onaylandı' :
-               reservation.status === 'pending' ? 'Beklemede' :
-               reservation.status === 'cancelled' ? 'İptal' : 
-               reservation.status}
-            </Badge>
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{formattedDate}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ClockIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{formattedTime}</span>
+            </div>
           </div>
+
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <UsersIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{reservation.guestCount} Kişi</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TableIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{reservation.tableName}</span>
+            </div>
+          </div>
+
+          {reservation.specialnotes && (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground">
+                {reservation.specialnotes}
+              </p>
+            </div>
+          )}
         </div>
+      </motion.div>
 
-        <div className="mt-4 flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{formattedDate}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <ClockIcon className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{formattedTime}</span>
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <UsersIcon className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{reservation.guestCount} Kişi</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <TableIcon className="w-4 h-4 text-muted-foreground" />
-            <span className="text-sm">{reservation.tableName}</span>
-          </div>
-        </div>
-
-        {reservation.specialnotes && (
-          <div className="mt-4">
-            <p className="text-sm text-muted-foreground">
-              {reservation.specialnotes}
-            </p>
-          </div>
-        )}
-      </div>
-
-      <div className="absolute top-4 right-4">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onEdit(reservation)}
-        >
-          <PencilIcon className="w-4 h-4" />
-        </Button>
-      </div>
-    </motion.div>
+      {showEditForm && (
+        <ReservationForm
+          reservationId={reservation.id}
+          onClose={() => setShowEditForm(false)}
+        />
+      )}
+    </>
   );
 }

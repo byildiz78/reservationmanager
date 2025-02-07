@@ -27,6 +27,20 @@ import { toast } from "@/components/ui/toast/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
 import { ReservationType, LocationType, ServiceType } from "@/types/reservation-types";
 import { Users, Calendar as CalendarIcon, Clock, MapPin, Phone, User, MessageSquare, Filter, Building2, UtensilsCrossed } from "lucide-react";
+import api from '@/lib/axios';
+
+interface Table {
+  table_id: number;
+  table_name: string;
+  table_capacity: number;
+  table_status: string;
+  section_id: number;
+  section_name: string;
+  section_description: string | null;
+  is_smoking: boolean;
+  is_outdoor: boolean;
+  is_vip: boolean;
+}
 
 interface ReservationFormModalProps {
   isOpen: boolean;
@@ -41,7 +55,7 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
     date: new Date(),
     time: "19:00",
     persons: "2",
-    tableId: "1",
+    tableId: "",
     type: "regular" as ReservationType,
     location: "salon" as LocationType,
     serviceType: "standard" as ServiceType,
@@ -49,14 +63,75 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
     specialRequests: "",
   });
 
+  const [tables, setTables] = useState<Table[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTables = async () => {
+      try {
+        const response = await api.get('/api/postgres/list-tables');
+        if (response.data.success) {
+          setTables(response.data.data);
+        }
+      } catch (err) {
+        console.error('Error fetching tables:', err);
+        toast({
+          title: "Hata",
+          description: "Masalar yüklenirken bir hata oluştu.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTables();
+  }, []);
+
   useEffect(() => {
     if (initialData) {
-      setFormData({
-        ...initialData,
-        date: new Date(initialData.date),
-      });
+      console.log('Initial Data:', initialData); // Gelen veriyi kontrol et
+      
+      try {
+        // Tarih ve saat bilgisini düzelt
+        const reservationDate = initialData.reservation_date ? new Date(initialData.reservation_date) : new Date();
+        const hours = reservationDate.getHours().toString().padStart(2, '0');
+        const minutes = reservationDate.getMinutes().toString().padStart(2, '0');
+        const time = `${hours}:${minutes}`;
+        
+        console.log('Parsed Date:', reservationDate);
+        console.log('Parsed Time:', time);
+        console.log('Table Name:', initialData.table_name);
+        
+        setFormData({
+          customerName: initialData.customer_name || "",
+          phone: initialData.phone || "",
+          date: reservationDate,
+          time: time,
+          persons: initialData.number_of_guests?.toString() || "2",
+          tableId: initialData.table_name || "",
+          type: (initialData.reservation_type as ReservationType) || "regular",
+          location: (initialData.section_name?.toLowerCase() as LocationType) || "salon",
+          serviceType: (initialData.service_type as ServiceType) || "standard",
+          notes: initialData.notes || "",
+          specialRequests: initialData.special_requests || "",
+        });
+      } catch (error) {
+        console.error('Error parsing reservation data:', error);
+        setFormData({
+          ...formData,
+          date: new Date(),
+          time: "19:00"
+        });
+      }
     }
   }, [initialData]);
+
+  // Debug için tables ve formData'yı izle
+  useEffect(() => {
+    console.log('Tables:', tables);
+    console.log('Form Data:', formData);
+  }, [tables, formData]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,20 +260,37 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
                   <div className="grid gap-3">
                     <Label className="flex items-center gap-2 text-base">
                       <MapPin className="w-5 h-5 text-primary" />
-                      Masa No
+                      Masa Seçimi
                     </Label>
                     <Select
                       value={formData.tableId}
-                      onValueChange={(value) => setFormData({ ...formData, tableId: value })}
+                      onValueChange={(value) => {
+                        console.log('Selected Table:', value);
+                        setFormData({ ...formData, tableId: value });
+                      }}
                     >
                       <SelectTrigger className="h-11 bg-muted/50 text-base">
-                        <SelectValue />
+                        <SelectValue placeholder="Masa seçin" />
                       </SelectTrigger>
                       <SelectContent>
-                        {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
-                          <SelectItem key={num} value={num.toString()}>
-                            Masa {num}
-                          </SelectItem>
+                        {Array.from(new Set(tables.map(t => t.section_name))).sort().map(sectionName => (
+                          <div key={sectionName}>
+                            <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted/50">
+                              {sectionName}
+                            </div>
+                            {tables
+                              .filter(t => t.section_name === sectionName)
+                              .sort((a, b) => a.table_name.localeCompare(b.table_name))
+                              .map((table) => (
+                                <SelectItem 
+                                  key={table.table_id} 
+                                  value={table.table_name}
+                                  className="pl-4"
+                                >
+                                  Masa {table.table_name} ({table.table_capacity} Kişilik)
+                                </SelectItem>
+                              ))}
+                          </div>
                         ))}
                       </SelectContent>
                     </Select>
@@ -241,9 +333,11 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="salon">Salon</SelectItem>
-                        <SelectItem value="terrace">Teras</SelectItem>
-                        <SelectItem value="upstairs">Üst Kat</SelectItem>
+                        {Array.from(new Set(tables.map(t => t.section_name))).sort().map(sectionName => (
+                          <SelectItem key={sectionName} value={sectionName.toLowerCase()}>
+                            {sectionName}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

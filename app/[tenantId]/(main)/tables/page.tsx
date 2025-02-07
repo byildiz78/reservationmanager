@@ -6,37 +6,42 @@ import { PencilIcon } from "lucide-react";
 import { SectionForm } from './components/SectionForm';
 import { TableForm } from './components/TableForm';
 import { SectionList } from './components/SectionList';
+import api from '@/lib/axios';
 
 // Types
-interface Section {
-    id: string;
-    name: string;
-    capacity: number;
-    tables: Table[];
-    image?: string;
-    description?: string;
-    isSmoking?: boolean;
-    isOutdoor?: boolean;
-    isVip?: boolean;
-    orderNumber?: number;
+interface Position {
+    x: number;
+    y: number;
+}
+
+interface Size {
+    width: number;
+    height: number;
 }
 
 interface Table {
-    id: string;
-    name: string;
+    table_id: number;
+    table_name: string;
     capacity: number;
-    status: "active" | "inactive";
-    reservationStatus: "available" | "reserved" | "occupied";
-    location?: string;
-    minReservationTime?: number;
-    maxReservationTime?: number;
-    reservationInterval?: number;
-    category?: {
-        id: string;
-        name: string;
-        minCapacity: number;
-        maxCapacity: number;
-    };
+    status: "available" | "reserved" | "occupied";
+    shape: "rectangle" | "circle";
+    position: Position;
+    size: Size;
+    category_name: string;
+    min_capacity: number;
+    max_capacity: number;
+    reservation_status: "available" | "reserved" | "occupied";
+}
+
+interface Section {
+    section_id: number;
+    section_name: string;
+    description: string;
+    capacity: number | null;
+    is_smoking: boolean;
+    is_outdoor: boolean;
+    is_active: boolean;
+    tables: Table[];
 }
 
 export default function TablesPage() {
@@ -45,7 +50,7 @@ export default function TablesPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [selectedSection, setSelectedSection] = useState<Section | null>(null);
-    const [selectedTable, setSelectedTable] = useState<any>(null);
+    const [selectedTable, setSelectedTable] = useState<Table | null>(null);
     const [formLoading, setFormLoading] = useState(false);
 
     // Modal states
@@ -61,8 +66,7 @@ export default function TablesPage() {
         capacity: 0,
         is_smoking: false,
         is_outdoor: false,
-        is_vip: false,
-        order_number: 0
+        is_active: false
     });
 
     const [tableForm, setTableForm] = useState({
@@ -71,10 +75,12 @@ export default function TablesPage() {
         section_id: '',
         category_id: '',
         status: 'available',
-        location: '',
-        min_reservation_time: 60,
-        max_reservation_time: 180,
-        reservation_interval: 15
+        position: { x: 0, y: 0 },
+        size: { width: 0, height: 0 },
+        shape: 'rectangle',
+        min_capacity: 0,
+        max_capacity: 0,
+        reservation_status: 'available'
     });
 
     const params = useParams();
@@ -82,12 +88,12 @@ export default function TablesPage() {
     const fetchSections = async () => {
         try {
             const [sectionsResponse, categoriesResponse] = await Promise.all([
-                fetch(`${params.tenantId}/api/postgres/list-sections`),
-                fetch(`${params.tenantId}/api/postgres/table-categories`)
+                api.get(`/api/postgres/list-sections`),
+                api.get(`/api/postgres/table-categories`)
             ]);
 
-            const sectionsData = await sectionsResponse.json();
-            const categoriesData = await categoriesResponse.json();
+            const sectionsData = await sectionsResponse.data;
+            const categoriesData = await categoriesResponse.data;
             
             if (sectionsData.success) {
                 setSections(sectionsData.data);
@@ -136,8 +142,7 @@ export default function TablesPage() {
                     capacity: 0,
                     is_smoking: false,
                     is_outdoor: false,
-                    is_vip: false,
-                    order_number: 0
+                    is_active: false
                 });
             } else {
                 throw new Error(data.error || 'Bölüm eklenirken bir hata oluştu');
@@ -164,7 +169,7 @@ export default function TablesPage() {
                 },
                 body: JSON.stringify({
                     ...sectionForm,
-                    section_id: selectedSection.id
+                    section_id: selectedSection.section_id
                 }),
             });
 
@@ -180,8 +185,7 @@ export default function TablesPage() {
                     capacity: 0,
                     is_smoking: false,
                     is_outdoor: false,
-                    is_vip: false,
-                    order_number: 0
+                    is_active: false
                 });
             } else {
                 throw new Error(data.error || 'Bölüm güncellenirken bir hata oluştu');
@@ -231,10 +235,12 @@ export default function TablesPage() {
                     section_id: '',
                     category_id: '',
                     status: 'available',
-                    location: '',
-                    min_reservation_time: 60,
-                    max_reservation_time: 180,
-                    reservation_interval: 15
+                    position: { x: 0, y: 0 },
+                    size: { width: 0, height: 0 },
+                    shape: 'rectangle',
+                    min_capacity: 0,
+                    max_capacity: 0,
+                    reservation_status: 'available'
                 });
             } else {
                 throw new Error(data.error || 'Masa eklenirken bir hata oluştu');
@@ -274,7 +280,7 @@ export default function TablesPage() {
                 },
                 body: JSON.stringify({
                     ...tableForm,
-                    table_id: selectedTable.id
+                    table_id: selectedTable.table_id
                 }),
             });
 
@@ -290,10 +296,12 @@ export default function TablesPage() {
                     section_id: '',
                     category_id: '',
                     status: 'available',
-                    location: '',
-                    min_reservation_time: 60,
-                    max_reservation_time: 180,
-                    reservation_interval: 15
+                    position: { x: 0, y: 0 },
+                    size: { width: 0, height: 0 },
+                    shape: 'rectangle',
+                    min_capacity: 0,
+                    max_capacity: 0,
+                    reservation_status: 'available'
                 });
             } else {
                 throw new Error(data.error || 'Masa güncellenirken bir hata oluştu');
@@ -304,6 +312,24 @@ export default function TablesPage() {
         } finally {
             setFormLoading(false);
         }
+    };
+
+    const handleEditTableModal = (table: Table, sectionId: number) => {
+        setSelectedTable(table);
+        setTableForm({
+            table_name: table.table_name,
+            capacity: table.capacity,
+            section_id: sectionId.toString(),
+            category_id: table.category_name,
+            status: table.status,
+            position: table.position,
+            size: table.size,
+            shape: table.shape,
+            min_capacity: table.min_capacity,
+            max_capacity: table.max_capacity,
+            reservation_status: table.reservation_status
+        });
+        setShowEditTable(true);
     };
 
     return (
@@ -398,7 +424,7 @@ export default function TablesPage() {
 
             {loading ? (
                 <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
                 </div>
             ) : (
                 <SectionList
@@ -406,45 +432,20 @@ export default function TablesPage() {
                     onEditSection={(section) => {
                         setSelectedSection(section);
                         setSectionForm({
-                            section_name: section.name,
+                            section_name: section.section_name,
                             description: section.description || '',
                             capacity: section.capacity || 0,
-                            is_smoking: section.isSmoking,
-                            is_outdoor: section.isOutdoor,
-                            is_vip: section.isVip,
-                            order_number: section.orderNumber || 0
+                            is_smoking: section.is_smoking,
+                            is_outdoor: section.is_outdoor,
+                            is_active: section.is_active
                         });
                         setShowEditSection(true);
                     }}
                     onAddTable={(sectionId) => {
-                        setTableForm({
-                            table_name: '',
-                            capacity: 0,
-                            section_id: sectionId,
-                            category_id: '',
-                            status: 'available',
-                            location: '',
-                            min_reservation_time: 60,
-                            max_reservation_time: 180,
-                            reservation_interval: 15
-                        });
+                        setTableForm(prev => ({ ...prev, section_id: sectionId.toString() }));
                         setShowAddTable(true);
                     }}
-                    onEditTable={(table, sectionId) => {
-                        setSelectedTable(table);
-                        setTableForm({
-                            table_name: table.name,
-                            capacity: table.capacity,
-                            section_id: sectionId,
-                            category_id: table.category?.id || '',
-                            status: table.reservationStatus,
-                            location: table.location || '',
-                            min_reservation_time: table.minReservationTime || 60,
-                            max_reservation_time: table.maxReservationTime || 180,
-                            reservation_interval: table.reservationInterval || 15
-                        });
-                        setShowEditTable(true);
-                    }}
+                    onEditTable={handleEditTableModal}
                 />
             )}
         </div>
