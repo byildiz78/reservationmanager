@@ -81,9 +81,13 @@ export function ReservationHeader({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tüm Durumlar</SelectItem>
+              <SelectItem value="pending">Onay Bekliyor</SelectItem>
+              <SelectItem value="awaiting_payment">Ödeme Bekleniyor</SelectItem>
+              <SelectItem value="payment_received">Ödeme Geldi</SelectItem>
               <SelectItem value="confirmed">Onaylandı</SelectItem>
-              <SelectItem value="pending">Bekliyor</SelectItem>
-              <SelectItem value="cancelled">İptal</SelectItem>
+              <SelectItem value="customer_arrived">Müşteri Geldi</SelectItem>
+              <SelectItem value="customer_no_show">Müşteri Gelmedi</SelectItem>
+              <SelectItem value="customer_cancelled">Müşteri İptal Etti</SelectItem>
             </SelectContent>
           </Select>
 

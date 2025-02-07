@@ -18,18 +18,23 @@ export default async function handler(
         try {
             let query = `
                 SELECT 
-                    r.reservation_id as id,
+                    r.reservation_id as "id",
                     r.customer_name as "customerName",
                     r.customer_phone as "customerPhone",
+                    r.customer_email as "customerEmail",
                     r.reservation_date as "reservationDate",
                     r.reservation_time as "reservationTime",
                     r.party_size as "guestCount",
                     r.status,
+                    r.notes,
                     r.specialnotes,
                     t.table_id as "tableId",
                     t.table_name as "tableName",
                     s.section_id as "sectionId",
-                    s.section_name as "sectionName"
+                    s.section_name as "sectionName",
+                    s.is_smoking as "is_smoking",
+                    s.is_outdoor as "is_outdoor",
+                    s.is_vip as "is_vip"
                 FROM reservations r
                 LEFT JOIN tables t ON r.table_id = t.table_id
                 LEFT JOIN sections s ON t.section_id = s.section_id
@@ -38,7 +43,7 @@ export default async function handler(
             const params = [];
 
             if (date) {
-                query += ` AND r.reservation_date = $2`;
+                query += ` AND r.reservation_date = $1`;
                 params.push(date);
             }
 

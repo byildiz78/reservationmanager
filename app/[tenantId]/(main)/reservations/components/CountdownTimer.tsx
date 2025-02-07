@@ -13,31 +13,48 @@ export function CountdownTimer({ reservationDate, reservationTime }: CountdownTi
   const [isOverdue, setIsOverdue] = useState(false);
 
   useEffect(() => {
-    const date = parseISO(reservationDate);
-    const today = new Date();
-    
-    const [hours, minutes] = reservationTime.split(':');
-    
-    const reservationDateTime = new Date(date);
-    reservationDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+    // Return early if either date or time is missing
+    if (!reservationDate || !reservationTime) {
+      setCountdown('');
+      return;
+    }
 
-    const timer = setInterval(() => {
-      const now = new Date();
-      const diff = reservationDateTime.getTime() - now.getTime();
-
-      if (diff <= 0) {
-        const overdueMinutes = Math.abs(Math.floor(diff / (1000 * 60)));
-        setIsOverdue(true);
-        setCountdown(`${overdueMinutes} dk gecikme`);
-      } else {
-        setIsOverdue(false);
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        setCountdown(`${hours}s ${minutes}dk kaldı`);
+    try {
+      const date = parseISO(reservationDate);
+      const today = new Date();
+      
+      const [hours, minutes] = reservationTime.split(':');
+      
+      if (!hours || !minutes) {
+        setCountdown('');
+        return;
       }
-    }, 1000);
 
-    return () => clearInterval(timer);
+      const reservationDateTime = new Date(date);
+      reservationDateTime.setHours(parseInt(hours, 10), parseInt(minutes, 10), 0);
+
+      const timer = setInterval(() => {
+        const now = new Date();
+        const diff = reservationDateTime.getTime() - now.getTime();
+
+        if (diff <= 0) {
+          const overdueMinutes = Math.abs(Math.floor(diff / (1000 * 60)));
+          setIsOverdue(true);
+          setCountdown(`${overdueMinutes} dk gecikme`);
+        } else {
+          setIsOverdue(false);
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          setCountdown(`${hours}s ${minutes}dk kaldı`);
+        }
+      }, 1000);
+
+      return () => clearInterval(timer);
+    } catch (error) {
+      console.error('Error in CountdownTimer:', error);
+      setCountdown('');
+      return;
+    }
   }, [reservationDate, reservationTime]);
 
   if (!countdown) return null;

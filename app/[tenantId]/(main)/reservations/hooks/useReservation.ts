@@ -36,8 +36,19 @@ export function useReservation(reservationId: number) {
             setLoading(true);
             setError(null);
             const response = await api.get(`/api/postgres/get-reservation?reservationId=${reservationId}`);
-            setReservation(response.data);
+            console.log('API Response:', response.data);
+            
+            if (!response.data) {
+                throw new Error('No data received from API');
+            }
+
+            // API returns the data directly
+            const reservationData = response.data;
+            console.log('Processed reservation data:', reservationData);
+            
+            setReservation(reservationData);
         } catch (err) {
+            console.error('Error fetching reservation:', err);
             setError(err instanceof Error ? err.message : 'Failed to fetch reservation');
         } finally {
             setLoading(false);

@@ -42,9 +42,65 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
 
   useEffect(() => {
     if (reservation) {
-      setFormData(reservation);
+      console.log('Raw reservation data:', reservation);
+      
+      try {
+        // Convert snake_case to camelCase for form data
+        const formattedData = {
+          id: reservation.id,
+          customerName: reservation.customer_name || '',
+          customerPhone: reservation.customer_phone || '',
+          customerEmail: reservation.customer_email || '',
+          guestCount: reservation.party_size || 2,
+          reservationDate: formatDate(reservation.reservation_date),
+          reservationTime: reservation.reservation_time ? reservation.reservation_time.slice(0, 5) : '',
+          tableId: reservation.table_id,
+          tableName: reservation.table_name || '',
+          tableCapacity: reservation.table_capacity,
+          tableStatus: reservation.table_status,
+          sectionName: reservation.section_name || '',
+          sectionDescription: reservation.section_description || '',
+          status: reservation.status || 'pending',
+          notes: reservation.notes || '',
+          specialnotes: reservation.specialnotes || '',
+          is_smoking: reservation.is_smoking || false,
+          is_outdoor: reservation.is_outdoor || false,
+          is_vip: reservation.is_vip || false
+        };
+
+        console.log('Formatted form data:', formattedData);
+        setFormData(formattedData);
+      } catch (error) {
+        console.error('Error setting form data:', error, 'Raw data:', reservation);
+        toast({
+          title: "Hata",
+          description: "Rezervasyon verileri yüklenirken bir hata oluştu.",
+          variant: "destructive"
+        });
+      }
     }
   }, [reservation]);
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) {
+      console.log('No date string provided');
+      return '';
+    }
+    try {
+      console.log('Formatting date:', dateString);
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        console.error('Invalid date:', dateString);
+        return '';
+      }
+      const formatted = format(date, 'yyyy-MM-dd');
+      console.log('Formatted date:', formatted);
+      return formatted;
+    } catch (err) {
+      console.error('Date formatting error:', err);
+      return '';
+    }
+  };
 
   const handleChange = (field: keyof Reservation, value: any) => {
     setFormData(prev => ({
@@ -53,33 +109,25 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
     }));
   };
 
-  const formatDate = (dateString: string | undefined) => {
-    if (!dateString) return '';
-    try {
-      return format(new Date(dateString), 'yyyy-MM-dd');
-    } catch (err) {
-      console.error('Date formatting error:', err);
-      return '';
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     try {
       setIsSubmitting(true);
 
+      // Convert camelCase back to snake_case for API
       const response = await api.put('/api/postgres/update-reservation', {
         reservation_id: reservationId,
-        customer_name: formData.customer_name,
-        customer_phone: formData.customer_phone,
-        customer_email: formData.customer_email,
-        party_size: formData.party_size,
-        reservation_date: formData.reservation_date,
-        reservation_time: formData.reservation_time,
+        customer_name: formData.customerName,
+        customer_phone: formData.customerPhone,
+        customer_email: formData.customerEmail,
+        party_size: formData.guestCount,
+        reservation_date: formData.reservationDate,
+        reservation_time: formData.reservationTime,
         status: formData.status,
-        table_id: formData.table_id,
-        notes: formData.notes
+        table_id: formData.tableId,
+        notes: formData.notes,
+        specialnotes: formData.specialnotes
       });
 
       if (response.data.success) {
@@ -93,6 +141,7 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
         throw new Error(response.data.error || 'Güncelleme başarısız oldu');
       }
     } catch (err) {
+      console.error('Error updating reservation:', err);
       toast({
         title: "Hata!",
         description: err instanceof Error ? err.message : 'Rezervasyon güncellenirken bir hata oluştu',
@@ -147,8 +196,8 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
                 <Label htmlFor="customerName">Müşteri Adı</Label>
                 <Input
                   id="customerName"
-                  value={formData.customer_name}
-                  onChange={(e) => handleChange('customer_name', e.target.value)}
+                  value={formData.customerName}
+                  onChange={(e) => handleChange('customerName', e.target.value)}
                   required
                 />
               </div>
@@ -156,8 +205,8 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
                 <Label htmlFor="customerPhone">Telefon</Label>
                 <Input
                   id="customerPhone"
-                  value={formData.customer_phone}
-                  onChange={(e) => handleChange('customer_phone', e.target.value)}
+                  value={formData.customerPhone}
+                  onChange={(e) => handleChange('customerPhone', e.target.value)}
                   required
                 />
               </div>
@@ -168,8 +217,8 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
               <Input
                 id="customerEmail"
                 type="email"
-                value={formData.customer_email || ''}
-                onChange={(e) => handleChange('customer_email', e.target.value)}
+                value={formData.customerEmail || ''}
+                onChange={(e) => handleChange('customerEmail', e.target.value)}
               />
             </div>
 
@@ -179,8 +228,8 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
                 <Input
                   id="reservationDate"
                   type="date"
-                  value={formatDate(formData.reservation_date)}
-                  onChange={(e) => handleChange('reservation_date', e.target.value)}
+                  value={formatDate(formData.reservationDate)}
+                  onChange={(e) => handleChange('reservationDate', e.target.value)}
                   required
                 />
               </div>
@@ -189,8 +238,8 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
                 <Input
                   id="reservationTime"
                   type="time"
-                  value={formData.reservation_time?.slice(0, 5) || ''}
-                  onChange={(e) => handleChange('reservation_time', e.target.value)}
+                  value={formData.reservationTime?.slice(0, 5) || ''}
+                  onChange={(e) => handleChange('reservationTime', e.target.value)}
                   required
                 />
               </div>
@@ -198,12 +247,12 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="partySize">Kişi Sayısı</Label>
+                <Label htmlFor="guestCount">Kişi Sayısı</Label>
                 <Input
-                  id="partySize"
+                  id="guestCount"
                   type="number"
-                  value={formData.party_size}
-                  onChange={(e) => handleChange('party_size', parseInt(e.target.value))}
+                  value={formData.guestCount}
+                  onChange={(e) => handleChange('guestCount', parseInt(e.target.value))}
                   min={1}
                   required
                 />
@@ -211,19 +260,15 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
               <div>
                 <Label htmlFor="table">Masa Seçimi</Label>
                 <Select
-                  value={formData.table_id?.toString()}
-                  onValueChange={(value) => {
-                    const selectedTable = tables.find(t => t.table_id.toString() === value);
-                    handleChange('table_id', parseInt(value));
+                  value={formData.tableName}
+                  onValueChange={(tableName) => {
+                    const selectedTable = tables.find(t => t.table_name === tableName);
                     if (selectedTable) {
-                      handleChange('table_name', selectedTable.table_name);
-                      handleChange('table_capacity', selectedTable.table_capacity);
-                      handleChange('table_status', selectedTable.table_status);
-                      handleChange('section_name', selectedTable.section_name);
-                      handleChange('section_description', selectedTable.section_description);
-                      handleChange('is_smoking', selectedTable.is_smoking);
-                      handleChange('is_outdoor', selectedTable.is_outdoor);
-                      handleChange('is_vip', selectedTable.is_vip);
+                      setFormData(prev => ({
+                        ...prev,
+                        tableId: selectedTable.table_id,
+                        tableName: selectedTable.table_name
+                      }));
                     }
                   }}
                 >
@@ -243,7 +288,7 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
                           .map((table) => (
                             <SelectItem 
                               key={table.table_id} 
-                              value={table.table_name.toString()}
+                              value={table.table_name}
                               className="pl-4"
                             >
                               Masa {table.table_name} ({table.table_capacity} Kişilik)
@@ -283,26 +328,26 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
               />
             </div>
 
-            {formData.table_id && (
+            {formData.tableId && (
               <div>
                 <Label>Masa ve Bölüm Bilgileri</Label>
                 <div className="mt-2 p-4 bg-gray-50 rounded-md space-y-2">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">Masa:</span>
-                    <span>{formData.table_name} ({formData.table_capacity} Kişilik)</span>
+                    <span>{formData.tableName} ({formData.tableCapacity} Kişilik)</span>
                     <span className={`ml-2 text-sm px-2 py-0.5 rounded ${
-                      formData.table_status === 'available' ? 'bg-green-100 text-green-800' :
-                      formData.table_status === 'occupied' ? 'bg-red-100 text-red-800' :
+                      formData.tableStatus === 'available' ? 'bg-green-100 text-green-800' :
+                      formData.tableStatus === 'occupied' ? 'bg-red-100 text-red-800' :
                       'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {formData.table_status === 'available' ? 'Müsait' :
-                       formData.table_status === 'occupied' ? 'Dolu' : 'Rezerve'}
+                      {formData.tableStatus === 'available' ? 'Müsait' :
+                       formData.tableStatus === 'occupied' ? 'Dolu' : 'Rezerve'}
                     </span>
                   </div>
                   
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">Bölüm:</span>
-                    <span>{formData.section_name}</span>
+                    <span>{formData.sectionName}</span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -326,9 +371,9 @@ export function ReservationForm({ reservationId, onClose }: ReservationFormProps
                     </div>
                   </div>
 
-                  {formData.section_description && (
+                  {formData.sectionDescription && (
                     <div className="text-sm text-gray-600 mt-2">
-                      {formData.section_description}
+                      {formData.sectionDescription}
                     </div>
                   )}
                 </div>

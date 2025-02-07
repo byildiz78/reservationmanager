@@ -9,23 +9,50 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import api from '@/lib/axios';
 
 interface ReservationActionsProps {
   reservationId: number;
   onEdit: () => void;
+  onUpdate?: () => void;
 }
 
-export function ReservationActions({ reservationId, onEdit }: ReservationActionsProps) {
-  const handleReservationStatus = (status: 'arrived' | 'no-show') => {
-    // API call would go here
-    toast({
-      title: status === 'arrived' ? 'Müşteri geldi olarak işaretlendi' : 'Müşteri gelmedi olarak işaretlendi',
-      description: `Rezervasyon durumu güncellendi.`,
-    });
+export function ReservationActions({ reservationId, onEdit, onUpdate }: ReservationActionsProps) {
+  const handleStatusUpdate = async (status: string) => {
+    try {
+      const response = await api.put(`/api/postgres/update-reservation?reservationId=${reservationId}`, {
+        status: status
+      });
+
+      if (response.data.success) {
+        const statusLabels: { [key: string]: string } = {
+          'customer_arrived': 'Müşteri geldi olarak işaretlendi',
+          'customer_no_show': 'Müşteri gelmedi olarak işaretlendi'
+        };
+
+        toast({
+          title: "Durum güncellendi",
+          description: statusLabels[status],
+          variant: "success",
+        });
+
+        if (onUpdate) {
+          onUpdate();
+        }
+      } else {
+        throw new Error(response.data.message || 'Güncelleme başarısız oldu');
+      }
+    } catch (error) {
+      console.error('Error updating reservation status:', error);
+      toast({
+        title: "Hata",
+        description: "Durum güncellenirken bir hata oluştu",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSendPaymentLink = () => {
-    // API call would go here
     toast({
       title: 'Ödeme linki gönderildi',
       description: 'Ödeme linki müşteriye SMS olarak gönderildi.',
@@ -33,7 +60,6 @@ export function ReservationActions({ reservationId, onEdit }: ReservationActions
   };
 
   const handleSendSMS = () => {
-    // API call would go here
     toast({
       title: 'SMS gönderildi',
       description: 'Bilgilendirme SMS\'i müşteriye gönderildi.',
@@ -67,7 +93,7 @@ export function ReservationActions({ reservationId, onEdit }: ReservationActions
               size="sm" 
               variant="outline"
               className="h-8 w-8 p-0"
-              onClick={() => handleReservationStatus('arrived')}
+              onClick={() => handleStatusUpdate('customer_arrived')}
             >
               <Check className="h-4 w-4 text-green-500" />
             </Button>
@@ -85,7 +111,7 @@ export function ReservationActions({ reservationId, onEdit }: ReservationActions
               size="sm" 
               variant="outline"
               className="h-8 w-8 p-0"
-              onClick={() => handleReservationStatus('no-show')}
+              onClick={() => handleStatusUpdate('customer_no_show')}
             >
               <X className="h-4 w-4 text-red-500" />
             </Button>

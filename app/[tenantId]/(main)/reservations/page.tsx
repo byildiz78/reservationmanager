@@ -15,6 +15,7 @@ import { ChartBarIcon, CalendarDaysIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
+import { toast } from "@/components/ui/toast";
 
 export default function ReservationsPage() {
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -35,10 +36,27 @@ export default function ReservationsPage() {
   const [activeTab, setActiveTab] = useState("list");
   const params = useParams();
 
-  // Sayfa yüklendiğinde ve date değiştiğinde rezervasyonları çek
+  const [loading, setLoading] = useState(true);
+
+  const fetchReservationsList = async () => {
+    try {
+      setLoading(true);
+      await fetchReservations();
+    } catch (error) {
+      console.error('Error fetching reservations:', error);
+      toast({
+        title: "Hata",
+        description: "Rezervasyonlar yüklenirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (params?.tenantId) {
-      fetchReservations();
+      fetchReservationsList();
       fetchSections(); // Bölümleri de yükle
     }
   }, [params?.tenantId, fetchReservations, fetchSections]);
@@ -52,15 +70,18 @@ export default function ReservationsPage() {
     setShowReservationModal(false);
     setSelectedReservation(null);
     // Modal kapandığında rezervasyonları yenile
-    fetchReservations();
+    fetchReservationsList();
   };
 
   const filteredReservations = reservations.filter(reservation => {
     const matchesSection = selectedSection === 'all' || reservation.sectionId === selectedSection;
     const matchesStatus = selectedStatus === 'all' || reservation.status === selectedStatus;
-    const matchesSearch = reservation?.customerName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         reservation.customerPhone.includes(searchQuery) ||
-                         reservation.tableName?.toLowerCase().includes(searchQuery.toLowerCase());
+    const searchLower = searchQuery.toLowerCase();
+    const matchesSearch = searchQuery === '' || 
+      reservation.customerName.toLowerCase().includes(searchLower) ||
+      reservation.customerPhone.toLowerCase().includes(searchLower) ||
+      reservation.tableName.toLowerCase().includes(searchLower);
+
     return matchesSection && matchesStatus && matchesSearch;
   });
 
@@ -76,6 +97,8 @@ export default function ReservationsPage() {
       customer_phone: reservation.customerPhone,
       party_size: reservation.guestCount,
       reservation_id: reservation.id,
+      reservation_date: reservation.reservationDate,
+      reservation_time: reservation.reservationTime,
       table: {
         table_id: reservation.tableId,
         table_name: reservation.tableName
@@ -181,7 +204,7 @@ export default function ReservationsPage() {
                 </Alert>
               )}
 
-              {isLoading ? (
+              {loading ? (
                 <div className="flex items-center justify-center h-[200px]">
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
@@ -198,21 +221,25 @@ export default function ReservationsPage() {
                         </h2>
                       </div>
                       <div className="space-y-4">
-                        {reservations.map((reservation: any, index: number) => (
-                          <ReservationCard
-                            key={reservation.reservation_id}
-                            reservation={reservation}
-                            table={reservation.table}
-                            section={reservation.section}
-                            index={index}
-                            onEdit={handleEdit}
-                          />
-                        ))}
+                        {reservations.map((reservation: any, index: number) => {
+                          console.log('Reservation data:', reservation);
+                          return (
+                            <ReservationCard
+                              key={reservation.reservation_id}
+                              reservation={reservation}
+                              table={reservation.table}
+                              section={reservation.section}
+                              index={index}
+                              onEdit={handleEdit}
+                              onUpdate={fetchReservationsList}
+                            />
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
 
-                  {filteredReservations.length === 0 && !isLoading && (
+                  {filteredReservations.length === 0 && !loading && (
                     <div className="text-center py-8 text-muted-foreground">
                       Görüntülenecek rezervasyon bulunamadı.
                     </div>
@@ -230,6 +257,7 @@ export default function ReservationsPage() {
         isOpen={showReservationModal} 
         onClose={handleCloseModal}
         initialData={selectedReservation}
+        onUpdate={fetchReservationsList}
       />
     </div>
   );

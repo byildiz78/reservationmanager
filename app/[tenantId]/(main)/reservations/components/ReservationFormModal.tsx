@@ -25,9 +25,10 @@ import {
 import { useReservationStore } from "@/stores/reservation-store";
 import { toast } from "@/components/ui/toast/use-toast";
 import { motion, AnimatePresence } from "framer-motion";
-import { ReservationType, LocationType, ServiceType } from "@/types/reservation-types";
-import { Users, Calendar as CalendarIcon, Clock, MapPin, Phone, User, MessageSquare, Filter, Building2, UtensilsCrossed } from "lucide-react";
+import { Users, Calendar as CalendarIcon, Clock, MapPin, Phone, User, MessageSquare, Filter, Building2, UtensilsCrossed, CheckCircle2 } from "lucide-react";
 import api from '@/lib/axios';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import cn from "classnames";
 
 interface Table {
   table_id: number;
@@ -42,42 +43,77 @@ interface Table {
   is_vip: boolean;
 }
 
+type LocationType = "salon" | "bahçe" | "teras";
+type ReservationType = "normal" | "özel" | "grup";
+type ServiceType = "standart" | "vip" | "özel";
+type ReservationStatus = "pending" | "awaiting_payment" | "payment_received" | "confirmed" | "customer_arrived" | "customer_no_show" | "customer_cancelled";
+
+interface FormData {
+  customerName: string;
+  phone: string;
+  date: Date;
+  time: string;
+  persons: string;
+  tableId: string;
+  type: ReservationType;
+  location: LocationType;
+  serviceType: ServiceType;
+  notes: string;
+  specialRequests: string;
+  status: ReservationStatus;
+}
+
 interface ReservationFormModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialData?: any;
+  onUpdate?: () => void;
 }
 
-export function ReservationFormModal({ isOpen, onClose, initialData }: ReservationFormModalProps) {
-  const [formData, setFormData] = useState({
+export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }: ReservationFormModalProps) {
+  const [formData, setFormData] = useState<FormData>({
     customerName: "",
     phone: "",
     date: new Date(),
-    time: "19:00",
+    time: format(new Date(), 'HH:mm'),
     persons: "2",
     tableId: "",
-    type: "regular" as ReservationType,
-    location: "salon" as LocationType,
-    serviceType: "standard" as ServiceType,
+    type: "normal",
+    location: "salon",
+    serviceType: "standart",
     notes: "",
     specialRequests: "",
+    status: "pending"
   });
 
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState("Veriler yükleniyor...");
+  const [sections, setSections] = useState<Array<{section_id: number, section_name: string}>>([]);
+  const [filteredTables, setFilteredTables] = useState<Table[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchTables = async () => {
+    const fetchData = async () => {
+      setLoading(true);
+      setLoadingMessage("Masalar yükleniyor...");
+      
       try {
-        const response = await api.get('/api/postgres/list-tables');
-        if (response.data.success) {
-          setTables(response.data.data);
+        const tablesResponse = await api.get('/api/postgres/list-tables');
+        if (tablesResponse.data.success) {
+          setTables(tablesResponse.data.data);
+        }
+
+        setLoadingMessage("Bölümler yükleniyor...");
+        const sectionsResponse = await api.get('/api/postgres/list-sections');
+        if (sectionsResponse.data.success) {
+          setSections(sectionsResponse.data.data);
         }
       } catch (err) {
-        console.error('Error fetching tables:', err);
+        console.error('Error fetching data:', err);
         toast({
           title: "Hata",
-          description: "Masalar yüklenirken bir hata oluştu.",
+          description: "Veriler yüklenirken bir hata oluştu.",
           variant: "destructive"
         });
       } finally {
@@ -85,47 +121,110 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
       }
     };
 
-    fetchTables();
+    fetchData();
   }, []);
 
   useEffect(() => {
+    if (isOpen && !initialData) {
+      // Set default values for new reservation
+      const now = new Date();
+      now.setHours(now.getHours() + 1); // Default to 1 hour from now
+      
+      setFormData({
+        customerName: "",
+        phone: "",
+        date: now,
+        time: format(now, 'HH:mm'),
+        persons: "2",
+        tableId: "",
+        type: "normal",
+        location: "salon",
+        serviceType: "standart",
+        notes: "",
+        specialRequests: "",
+        status: "pending"
+      });
+    }
+  }, [isOpen, initialData]);
+
+  useEffect(() => {
     if (initialData) {
-      console.log('Initial Data:', initialData); // Gelen veriyi kontrol et
+      console.log('Setting form data with:', initialData);
+      console.log('Initial reservation date:', initialData.reservation_date);
       
       try {
-        // Tarih ve saat bilgisini düzelt
-        const reservationDate = initialData.reservation_date ? new Date(initialData.reservation_date) : new Date();
-        const hours = reservationDate.getHours().toString().padStart(2, '0');
-        const minutes = reservationDate.getMinutes().toString().padStart(2, '0');
-        const time = `${hours}:${minutes}`;
+        // Parse date string to Date object
+        let dateObj = new Date();
         
-        console.log('Parsed Date:', reservationDate);
-        console.log('Parsed Time:', time);
-        console.log('Table Name:', initialData.table_name);
-        
-        setFormData({
-          customerName: initialData.customer_name || "",
-          phone: initialData.phone || "",
-          date: reservationDate,
-          time: time,
-          persons: initialData.number_of_guests?.toString() || "2",
-          tableId: initialData.table_name || "",
-          type: (initialData.reservation_type as ReservationType) || "regular",
-          location: (initialData.section_name?.toLowerCase() as LocationType) || "salon",
-          serviceType: (initialData.service_type as ServiceType) || "standard",
-          notes: initialData.notes || "",
-          specialRequests: initialData.special_requests || "",
-        });
+        if (initialData.reservation_date) {
+          // Create date using local timezone
+          dateObj = new Date(initialData.reservation_date);
+          console.log('Created date object:', dateObj);
+        } else {
+          console.warn('No reservation date provided in initialData');
+        }
+
+        // Format time string (remove seconds if present)
+        const timeStr = initialData.reservation_time?.split(':').slice(0, 2).join(':') || '19:00';
+        console.log('Time string:', timeStr);
+
+        // Create new form data
+        const newFormData = {
+          customerName: initialData.customer_name || '',
+          phone: initialData.customer_phone || '',
+          date: dateObj,
+          time: timeStr,
+          persons: String(initialData.party_size) || '2',
+          tableId: String(initialData.table_id) || '',
+          type: 'normal' as ReservationType,
+          location: (initialData.section_name?.toLowerCase() || 'salon') as LocationType,
+          serviceType: 'standart' as ServiceType,
+          notes: initialData.notes || '',
+          specialRequests: initialData.specialnotes || '',
+          status: (initialData.status || 'pending') as ReservationStatus
+        };
+
+        console.log('Setting form data to:', newFormData);
+        setFormData(newFormData);
       } catch (error) {
-        console.error('Error parsing reservation data:', error);
-        setFormData({
-          ...formData,
-          date: new Date(),
-          time: "19:00"
+        console.error('Error setting form data:', error);
+        console.error('Error details:', {
+          initialData,
+          dateString: initialData.reservation_date
+        });
+        toast({
+          title: "Hata",
+          description: "Form verisi yüklenirken bir hata oluştu.",
+          variant: "destructive",
         });
       }
     }
   }, [initialData]);
+
+  useEffect(() => {
+    if (tables.length > 0) {
+      const filtered = tables.filter(table => 
+        table.section_name.toLowerCase() === formData.location.toLowerCase()
+      );
+      setFilteredTables(filtered);
+
+      // Clear table selection if current table is not in filtered list
+      if (formData.tableId && !filtered.find(t => String(t.table_id) === formData.tableId)) {
+        setFormData(prev => ({ ...prev, tableId: "" }));
+      }
+    }
+  }, [formData.location, tables]);
+
+  const handleTableChange = (tableId: string) => {
+    const selectedTable = tables.find(t => String(t.table_id) === tableId);
+    if (selectedTable) {
+      setFormData(prev => ({
+        ...prev,
+        tableId,
+        location: selectedTable.section_name.toLowerCase() as LocationType
+      }));
+    }
+  };
 
   // Debug için tables ve formData'yı izle
   useEffect(() => {
@@ -133,15 +232,94 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
     console.log('Form Data:', formData);
   }, [tables, formData]);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // API call would go here
-    toast({
-      title: initialData ? "Rezervasyon güncellendi" : "Yeni rezervasyon oluşturuldu",
-      description: "İşlem başarıyla tamamlandı.",
-    });
-    onClose();
+  // Helper function to ensure valid date for formatting
+  const formatDateSafe = (date: Date | null | undefined) => {
+    if (!date || isNaN(date.getTime())) {
+      console.log('Invalid date:', date);
+      return <span>Tarih seçin</span>;
+    }
+    try {
+      const formatted = format(date, "PPP", { locale: tr });
+      console.log('Formatted date:', formatted);
+      return formatted;
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return <span>Tarih seçin</span>;
+    }
   };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      console.log('Submitting form with data:', formData);
+      console.log('Initial data:', initialData);
+
+      // Format date in YYYY-MM-DD format
+      const formattedDate = format(formData.date, 'yyyy-MM-dd');
+      console.log('Formatted date for submission:', formattedDate);
+
+      const reservationData = {
+        customer_name: formData.customerName,
+        customer_phone: formData.phone,
+        party_size: parseInt(formData.persons),
+        reservation_date: formattedDate,
+        reservation_time: formData.time,
+        table_id: parseInt(formData.tableId),
+        notes: formData.notes || '',
+        specialnotes: formData.specialRequests || '',
+        status: formData.status,
+        branch_id: 1
+      };
+
+      console.log('Reservation data to submit:', reservationData);
+
+      let response;
+      if (initialData?.id) {
+        // Update existing reservation
+        console.log('Updating reservation with ID:', initialData.id);
+        response = await api.put(`/api/postgres/update-reservation?reservationId=${initialData.id}`, reservationData);
+      } else {
+        // Create new reservation
+        console.log('Creating new reservation');
+        response = await api.post('/api/postgres/add-reservation', reservationData);
+      }
+
+      console.log('API Response:', response);
+
+      if (response.data.success) {
+        toast({
+          title: initialData ? "Rezervasyon güncellendi" : "Rezervasyon oluşturuldu",
+          description: "İşlem başarıyla tamamlandı.",
+          variant: "success",
+        });
+
+        if (onUpdate) {
+          onUpdate();
+        }
+        onClose();
+      } else {
+        throw new Error(response.data.message || 'Bir hata oluştu');
+      }
+    } catch (error) {
+      console.error('Form submission error:', error);
+      toast({
+        title: "Hata",
+        description: error.message || "Rezervasyon kaydedilirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleChange = (field: keyof FormData, value: FormData[keyof FormData]) => {
+    setFormData(prevData => ({ ...prevData, [field]: value }));
+  };
+
+  // Update the date display in the button
+  const dateDisplay = formatDateSafe(formData.date);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -158,47 +336,51 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
               </DialogDescription>
             </DialogHeader>
 
-            <div className="space-y-6">
-              <Calendar
-                mode="single"
-                selected={formData.date}
-                onSelect={(date) => date && setFormData({ ...formData, date })}
-                className="rounded-xl border shadow-sm p-4"
-                locale={tr}
-                modifiers={{
-                  weekend: (date) => date.getDay() === 5 || date.getDay() === 6
-                }}
-                modifiersStyles={{
-                  weekend: {
-                    color: 'rgb(239 68 68)',
-                    fontWeight: '600',
-                    backgroundColor: 'rgb(254 242 242)',
-                    borderRadius: '4px'
-                  }
-                }}
-              />
-
-              <div className="pt-6 border-t">
-                <Label className="flex items-center gap-2 mb-4 text-base font-medium">
-                  <Clock className="w-5 h-5 text-primary" />
-                  Saat Seçimi
-                </Label>
-                <div className="grid grid-cols-4 gap-3">
-                  {["18:00", "19:00", "20:00", "21:00", "22:00", "23:00"].map((time) => (
-                    <Button
-                      key={time}
-                      type="button"
-                      variant={formData.time === time ? "default" : "outline"}
-                      className={`h-11 text-base font-medium transition-all ${
-                        formData.time === time 
-                          ? "bg-primary text-primary-foreground shadow-lg scale-105" 
-                          : "hover:bg-primary/10"
-                      }`}
-                      onClick={() => setFormData({ ...formData, time })}
-                    >
-                      {time}
-                    </Button>
-                  ))}
+            <div className="space-y-4 py-2 pb-4">
+              <div className="space-y-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="date">Tarih</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !formData.date && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateDisplay}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={formData.date}
+                          onSelect={(date) => handleChange("date", date)}
+                          initialFocus
+                          locale={tr}
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <div>
+                    <Label htmlFor="time">Saat</Label>
+                    <Select value={formData.time} onValueChange={(value) => handleChange("time", value)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="18:00">18:00</SelectItem>
+                        <SelectItem value="19:00">19:00</SelectItem>
+                        <SelectItem value="20:00">20:00</SelectItem>
+                        <SelectItem value="21:00">21:00</SelectItem>
+                        <SelectItem value="22:00">22:00</SelectItem>
+                        <SelectItem value="23:00">23:00</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -207,204 +389,241 @@ export function ReservationFormModal({ isOpen, onClose, initialData }: Reservati
           {/* Sağ Panel - Müşteri Bilgileri ve Diğer Detaylar */}
           <div className="p-8">
             <form onSubmit={handleSubmit} className="space-y-8">
-              <div className="grid gap-6">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="grid gap-3">
-                    <Label className="flex items-center gap-2 text-base">
-                      <User className="w-5 h-5 text-primary" />
-                      Müşteri Adı
-                    </Label>
-                    <Input
-                      value={formData.customerName}
-                      onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                      className="h-11 bg-muted/50 text-base"
-                    />
+              <div className="space-y-6">
+                {loading ? (
+                  <div className="flex flex-col items-center justify-center py-8 space-y-4">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-sm text-muted-foreground">{loadingMessage}</p>
                   </div>
+                ) : (
+                  <>
+                    <div className="grid gap-6">
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid gap-3">
+                          <Label htmlFor="customerName" className="flex items-center gap-2 text-base">
+                            <User className="w-4 h-4 text-primary" />
+                            Müşteri Adı
+                          </Label>
+                          <Input
+                            id="customerName"
+                            value={formData.customerName}
+                            onChange={(e) => handleChange("customerName", e.target.value)}
+                            className="h-11 bg-muted/50 text-base"
+                          />
+                        </div>
 
-                  <div className="grid gap-3">
-                    <Label className="flex items-center gap-2 text-base">
-                      <Phone className="w-5 h-5 text-primary" />
-                      Telefon
-                    </Label>
-                    <Input
-                      value={formData.phone}
-                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      className="h-11 bg-muted/50 text-base"
-                    />
-                  </div>
-                </div>
+                        <div className="grid gap-3">
+                          <Label htmlFor="phone" className="flex items-center gap-2 text-base">
+                            <Phone className="w-4 h-4 text-primary" />
+                            Telefon
+                          </Label>
+                          <Input
+                            id="phone"
+                            value={formData.phone}
+                            onChange={(e) => handleChange("phone", e.target.value)}
+                            className="h-11 bg-muted/50 text-base"
+                          />
+                        </div>
+                      </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="grid gap-3">
-                    <Label className="flex items-center gap-2 text-base">
-                      <Users className="w-5 h-5 text-primary" />
-                      Kişi Sayısı
-                    </Label>
-                    <Select
-                      value={formData.persons}
-                      onValueChange={(value) => setFormData({ ...formData, persons: value })}
-                    >
-                      <SelectTrigger className="h-11 bg-muted/50 text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => (
-                          <SelectItem key={num} value={num.toString()}>
-                            {num} Kişi
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid gap-3">
+                          <Label className="flex items-center gap-2 text-base">
+                            <Users className="w-5 h-5 text-primary" />
+                            Kişi Sayısı
+                          </Label>
+                          <Select
+                            value={formData.persons}
+                            onValueChange={(value) => handleChange("persons", value)}
+                          >
+                            <SelectTrigger className="h-11 bg-muted/50 text-base">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({ length: 12 }, (_, i) => i + 1).map((num) => (
+                                <SelectItem key={num} value={num.toString()}>
+                                  {num} Kişi
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                  <div className="grid gap-3">
-                    <Label className="flex items-center gap-2 text-base">
-                      <MapPin className="w-5 h-5 text-primary" />
-                      Masa Seçimi
-                    </Label>
-                    <Select
-                      value={formData.tableId}
-                      onValueChange={(value) => {
-                        console.log('Selected Table:', value);
-                        setFormData({ ...formData, tableId: value });
-                      }}
-                    >
-                      <SelectTrigger className="h-11 bg-muted/50 text-base">
-                        <SelectValue placeholder="Masa seçin" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from(new Set(tables.map(t => t.section_name))).sort().map(sectionName => (
-                          <div key={sectionName}>
-                            <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground bg-muted/50">
-                              {sectionName}
-                            </div>
-                            {tables
-                              .filter(t => t.section_name === sectionName)
-                              .sort((a, b) => a.table_name.localeCompare(b.table_name))
-                              .map((table) => (
+                        <div className="grid gap-3">
+                          <Label className="flex items-center gap-2 text-base">
+                            <MapPin className="w-5 h-5 text-primary" />
+                            Konum
+                          </Label>
+                          <Select
+                            value={formData.location}
+                            onValueChange={(value) =>
+                              setFormData({ ...formData, location: value as LocationType })
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Konum seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sections.map((section) => (
+                                <SelectItem
+                                  key={section.section_id}
+                                  value={section.section_name.toLowerCase()}
+                                >
+                                  {section.section_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid md:grid-cols-2 gap-6">
+                        <div className="grid gap-3">
+                          <Label className="flex items-center gap-2 text-base">
+                            <Filter className="w-5 h-5 text-primary" />
+                            Masa
+                          </Label>
+                          <Select
+                            value={formData.tableId}
+                            onValueChange={handleTableChange}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Masa seçin" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {filteredTables.map((table) => (
                                 <SelectItem 
                                   key={table.table_id} 
-                                  value={table.table_name}
+                                  value={String(table.table_id)}
                                   className="pl-4"
                                 >
                                   Masa {table.table_name} ({table.table_capacity} Kişilik)
                                 </SelectItem>
                               ))}
-                          </div>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                            </SelectContent>
+                          </Select>
+                        </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="grid gap-3">
-                    <Label className="flex items-center gap-2 text-base">
-                      <Filter className="w-5 h-5 text-primary" />
-                      Rezervasyon Tipi
-                    </Label>
-                    <Select
-                      value={formData.type}
-                      onValueChange={(value: ReservationType) => setFormData({ ...formData, type: value })}
-                    >
-                      <SelectTrigger className="h-11 bg-muted/50 text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="regular">Normal</SelectItem>
-                        <SelectItem value="birthday">Doğum Günü</SelectItem>
-                        <SelectItem value="anniversary">Yıl Dönümü</SelectItem>
-                        <SelectItem value="meeting">İş Yemeği</SelectItem>
-                        <SelectItem value="special">Özel Gün</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                        <div className="grid gap-3">
+                          <Label className="flex items-center gap-2 text-base">
+                            <Filter className="w-5 h-5 text-primary" />
+                            Rezervasyon Tipi
+                          </Label>
+                          <Select
+                            value={formData.type}
+                            onValueChange={(value: ReservationType) => handleChange("type", value)}
+                          >
+                            <SelectTrigger className="h-11 bg-muted/50 text-base">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="normal">Normal</SelectItem>
+                              <SelectItem value="özel">Özel</SelectItem>
+                              <SelectItem value="grup">Grup</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
 
-                  <div className="grid gap-3">
-                    <Label className="flex items-center gap-2 text-base">
-                      <Building2 className="w-5 h-5 text-primary" />
-                      Konum
-                    </Label>
-                    <Select
-                      value={formData.location}
-                      onValueChange={(value: LocationType) => setFormData({ ...formData, location: value })}
-                    >
-                      <SelectTrigger className="h-11 bg-muted/50 text-base">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from(new Set(tables.map(t => t.section_name))).sort().map(sectionName => (
-                          <SelectItem key={sectionName} value={sectionName.toLowerCase()}>
-                            {sectionName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
+                      <div className="grid gap-3">
+                        <Label className="flex items-center gap-2 text-base">
+                          <UtensilsCrossed className="w-5 h-5 text-primary" />
+                          Servis Tercihi
+                        </Label>
+                        <Select
+                          value={formData.serviceType}
+                          onValueChange={(value: ServiceType) => handleChange("serviceType", value)}
+                        >
+                          <SelectTrigger className="h-11 bg-muted/50 text-base">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="standart">Standart</SelectItem>
+                            <SelectItem value="vip">Vip</SelectItem>
+                            <SelectItem value="özel">Özel</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                <div className="grid gap-3">
-                  <Label className="flex items-center gap-2 text-base">
-                    <UtensilsCrossed className="w-5 h-5 text-primary" />
-                    Servis Tercihi
-                  </Label>
-                  <Select
-                    value={formData.serviceType}
-                    onValueChange={(value: ServiceType) => setFormData({ ...formData, serviceType: value })}
-                  >
-                    <SelectTrigger className="h-11 bg-muted/50 text-base">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="alacarte">A La Carte</SelectItem>
-                      <SelectItem value="fixmenu">Fix Menü</SelectItem>
-                      <SelectItem value="standard">Standart</SelectItem>
-                      <SelectItem value="special">Özel İstek</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                      <div className="grid gap-3">
+                        <Label className="flex items-center gap-2 text-base">
+                          <CheckCircle2 className="w-5 h-5 text-primary" />
+                          Rezervasyon Durumu
+                        </Label>
+                        <Select
+                          value={formData.status}
+                          onValueChange={(value: ReservationStatus) => handleChange("status", value)}
+                        >
+                          <SelectTrigger className="h-11 bg-muted/50 text-base">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Onay Bekliyor</SelectItem>
+                            <SelectItem value="awaiting_payment">Ödeme Bekleniyor</SelectItem>
+                            <SelectItem value="payment_received">Ödeme Geldi</SelectItem>
+                            <SelectItem value="confirmed">Onaylandı</SelectItem>
+                            <SelectItem value="customer_arrived">Müşteri Geldi</SelectItem>
+                            <SelectItem value="customer_no_show">Müşteri Gelmedi</SelectItem>
+                            <SelectItem value="customer_cancelled">Müşteri İptal Etti</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                <div className="grid gap-3">
-                  <Label className="flex items-center gap-2 text-base">
-                    <MessageSquare className="w-5 h-5 text-primary" />
-                    Notlar
-                  </Label>
-                  <Textarea
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    placeholder="Rezervasyon ile ilgili notlar..."
-                    className="bg-muted/50 min-h-[100px] text-base"
-                  />
-                </div>
-
-                <div className="grid gap-3">
-                  <Label className="flex items-center gap-2 text-base">
-                    <Filter className="w-5 h-5 text-primary" />
-                    Özel İstekler
-                  </Label>
-                  <Textarea
-                    value={formData.specialRequests}
-                    onChange={(e) => setFormData({ ...formData, specialRequests: e.target.value })}
-                    placeholder="Müşterinin özel istekleri..."
-                    className="bg-muted/50 min-h-[100px] text-base"
-                  />
-                </div>
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="notes" className="flex items-center gap-2 text-base">
+                            <MessageSquare className="w-4 h-4 text-primary" />
+                            Notlar
+                          </Label>
+                          <Textarea
+                            id="notes"
+                            value={formData.notes}
+                            onChange={(e) => handleChange("notes", e.target.value)}
+                            placeholder="Rezervasyon ile ilgili notlar..."
+                            className="bg-muted/50 min-h-[100px] text-base"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="specialRequests" className="flex items-center gap-2 text-base">
+                            <Filter className="w-4 h-4 text-primary" />
+                            Özel İstekler
+                          </Label>
+                          <Textarea
+                            id="specialRequests"
+                            value={formData.specialRequests}
+                            onChange={(e) => handleChange("specialRequests", e.target.value)}
+                            placeholder="Müşterinin özel istekleri..."
+                            className="bg-muted/50 min-h-[100px] text-base"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
 
-              <div className="flex justify-end gap-3 pt-6 border-t">
-                <Button 
-                  type="button" 
-                  variant="outline" 
+              <div className="flex justify-end gap-3 pt-6">
+                <Button
+                  variant="outline"
                   onClick={onClose}
-                  className="h-11 px-6 text-base"
+                  className="w-full md:w-auto"
+                  disabled={isSubmitting}
                 >
                   İptal
                 </Button>
-                <Button 
-                  type="submit" 
-                  className="h-11 px-6 text-base bg-primary hover:bg-primary/90"
+                <Button
+                  type="submit"
+                  className="w-full md:w-auto"
+                  disabled={isSubmitting}
                 >
-                  {initialData ? "Güncelle" : "Oluştur"}
+                  {isSubmitting ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      {initialData?.id ? "Güncelleniyor..." : "Kaydediliyor..."}
+                    </div>
+                  ) : (
+                    initialData?.id ? "Güncelle" : "Kaydet"
+                  )}
                 </Button>
               </div>
             </form>
