@@ -1,0 +1,34 @@
+- Projem Shadcn radixui ve tailwindcss üzerine kurulu tüm tasarımları buna göre yapmalısın.
+- components altında gerekli birsürü component mevcut eğer ihtiyacın olursa shadcn ve radixui kullanarak alabilirsin.
+- stores, types, providers, lib, hooks ve pages/api iyice incele ve kodlarını buradaki şeyleri kullanarak yapabilirsin.
+- pages/api altında örnek apilerim var apileri buraya yazmalısın. bu dosyaları oku bu dosyalar örnek bir api dosyasıdır.
+- Önemli : Projedeki tüm importları @/ prefixi ile yapmalısın ve axiosları herzaman import axios from "@/lib/axios"; şeklinde import etmelisin.
+- types/tables.ts altında veritabanı tablolarımın typeları bulunur sorgularda bu typeları kullanabilirsin.
+- api dosyalarında veritabanı sorgularını yazabilirsin.
+-tüm api dosyalarını pages\api\postgres buraya oluşturmalısın
+-pages\api\postgres\db-test.ts bu dosyayı okuyup örnek alabilirsin
+
+PostgreSQL Bağlantı ve Kullanım:
+- Bağlantı için .env dosyasında şu bilgiler var:
+  POSTGRES_USER=kullanıcı_adı
+  POSTGRES_PASSWORD=şifre
+  POSTGRES_HOST=host_adresi
+  POSTGRES_PORT=5432
+  POSTGRES_DB=veritabanı_adı
+  POSTGRES_SSL=true/false
+
+- API endpoint'leri /franchisemanager/api/postgres/ altında oluşturulmalı
+- Örnek endpoint: http://localhost:3002/franchisemanager/api/postgres/create-tables
+
+- PostgreSQL bağlantısı için lib/postgre.ts dosyası kullanılıyor
+- Örnek kullanım:
+  import { pool, query, withTransaction } from "@/lib/postgre";
+  
+  // Direkt sorgu için:
+  const result = await query('SELECT * FROM tables');
+  
+  // Transaction için:
+  await withTransaction(async (client) => {
+    await client.query('INSERT INTO tables ...');
+    await client.query('INSERT INTO reservations ...');
+  });
