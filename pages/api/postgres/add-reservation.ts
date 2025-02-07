@@ -1,7 +1,14 @@
+import { NextApiRequest, NextApiResponse } from 'next';
 import { pool } from "@/lib/postgre";
-import { NextResponse } from "next/server";
 
-export async function POST(request: Request) {
+export default async function handler(
+    req: NextApiRequest,
+    res: NextApiResponse
+) {
+    if (req.method !== 'POST') {
+        return res.status(405).json({ success: false, error: 'Method not allowed' });
+    }
+
     try {
         const { 
             branch_id,
@@ -15,13 +22,13 @@ export async function POST(request: Request) {
             table_id,
             notes,
             specialnotes
-        } = await request.json();
+        } = req.body;
 
         if (!branch_id || !customer_name || !party_size || !reservation_date || !reservation_time) {
-            return NextResponse.json({ 
+            return res.status(400).json({ 
                 success: false, 
                 error: 'Gerekli alanlar eksik' 
-            }, { status: 400 });
+            });
         }
 
         const client = await pool.connect();
@@ -58,57 +65,23 @@ export async function POST(request: Request) {
                 specialnotes
             ]);
 
-            // Rezervasyon geçmişini kaydet
-            await client.query(`
-                INSERT INTO reservation_history (
-                    reservation_id,
-                    branch_id,
-                    customer_name,
-                    customer_phone,
-                    customer_email,
-                    party_size,
-                    reservation_date,
-                    reservation_time,
-                    status,
-                    table_id,
-                    notes,
-                    specialnotes,
-                    action_type
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'CREATE')
-            `, [
-                result.rows[0].reservation_id,
-                branch_id,
-                customer_name,
-                customer_phone,
-                customer_email,
-                party_size,
-                reservation_date,
-                reservation_time,
-                status,
-                table_id,
-                notes,
-                specialnotes
-            ]);
-
             await client.query('COMMIT');
 
-            return NextResponse.json({ 
-                success: true, 
-                data: result.rows[0] 
+            return res.status(200).json({
+                success: true,
+                data: result.rows[0]
             });
-
         } catch (error) {
             await client.query('ROLLBACK');
             throw error;
         } finally {
             client.release();
         }
-
     } catch (error) {
-        console.error('Add Reservation Error:', error);
-        return NextResponse.json({ 
-            success: false, 
-            error: (error as Error).message 
-        }, { status: 500 });
+        console.error('Error in add-reservation:', error);
+        return res.status(500).json({
+            success: false,
+            error: 'Internal server error'
+        });
     }
 }

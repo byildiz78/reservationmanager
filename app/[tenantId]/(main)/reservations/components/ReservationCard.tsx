@@ -1,13 +1,13 @@
 "use client";
 
-import { Phone, Clock, Users, MapPin, Building2 } from "lucide-react";
+import { useState } from 'react';
+import { CalendarIcon, ClockIcon, UsersIcon, TableIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { ReservationActions } from "./ReservationActions";
-import { CountdownTimer } from "./CountdownTimer";
 import { format, parseISO } from "date-fns";
 import { tr } from "date-fns/locale";
+import { ReservationActions } from "./ReservationActions";
+import { ReservationForm } from "./ReservationForm";
 
 // PostgreSQL'deki reservation tablosu için type
 export interface Reservation {
@@ -37,9 +37,22 @@ export interface Reservation {
 }
 
 interface ReservationCardProps {
-  reservation: Reservation;
+  reservation: {
+    id: number;
+    customerName: string;
+    customerPhone: string;
+    guestCount: number;
+    reservationDate: string;
+    reservationTime: string;
+    tableId: number;
+    tableName: string;
+    sectionId: number;
+    sectionName: string;
+    status: string;
+    specialnotes?: string;
+  };
   index: number;
-  onEdit: (reservation: Reservation) => void;
+  onEdit: (reservation: any) => void;
 }
 
 const getStatusColor = (status: string) => {
@@ -59,93 +72,95 @@ const getSectionFeatures = (reservation: Reservation) => {
 };
 
 export function ReservationCard({ reservation, index, onEdit }: ReservationCardProps) {
+  const [showEditForm, setShowEditForm] = useState(false);
+
   // Tarih ve saat formatlaması
-  const formattedDate = format(parseISO(reservation.reservation_date), 'dd MMMM yyyy', { locale: tr });
-  const formattedTime = reservation.reservation_time.slice(0, 5); // HH:mm formatına çevirme
+  const formattedDate = format(parseISO(reservation.reservationDate), 'dd MMMM yyyy', { locale: tr });
+  const formattedTime = reservation.reservationTime.slice(0, 5); // HH:mm formatına çevirme
+
+  const handleEdit = () => {
+    setShowEditForm(true);
+    onEdit(reservation);
+  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      transition={{ delay: index * 0.05 }}
-    >
-      <Card
-        className={`p-6 hover:bg-accent/50 transition-all duration-300 cursor-pointer relative overflow-hidden group
-          ${index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-900/50'}
-          transform hover:scale-[1.01] hover:shadow-lg
-          border-l-4 ${reservation.status === 'confirmed' ? 'border-l-emerald-500' : 
-                     reservation.status === 'cancelled' ? 'border-l-red-500' : 
-                     'border-l-amber-500'}`}
+    <>
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: index * 0.1 }}
+        className="relative bg-card rounded-lg shadow-sm border overflow-hidden"
       >
-        <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-primary/10 to-transparent -rotate-45 transform translate-x-12 -translate-y-12 group-hover:translate-x-10 group-hover:-translate-y-10 transition-transform duration-300" />
-        
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="flex flex-col items-center bg-primary/5 p-4 rounded-xl">
-              <Clock className="h-5 w-5 text-primary mb-1" />
-              <span className="text-sm font-medium">{formattedTime}</span>
-            </div>
-
+        <div className="p-4">
+          <div className="flex items-start justify-between">
             <div>
-              <div className="font-medium text-lg flex items-center gap-2 mb-2">
-                {reservation.customer_name}
-                {reservation.section_name && (
-                  <Badge variant="outline" className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
-                    <Building2 className="h-3 w-3 mr-1" />
-                    {reservation.section_name}
-                  </Badge>
-                )}
-                {/* Bölüm özellikleri */}
-                {getSectionFeatures(reservation).map((feature, i) => (
-                  <Badge key={i} className={feature.color}>
-                    {feature.label}
-                  </Badge>
-                ))}
-              </div>
-              <div className="text-sm text-muted-foreground flex items-center gap-4 mt-1">
-                {reservation.customer_phone && (
-                  <span className="flex items-center gap-1 hover:text-primary transition-colors">
-                    <Phone className="h-3 w-3" />
-                    {reservation.customer_phone}
-                  </span>
-                )}
-                {reservation.table_name && (
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3 w-3" />
-                    {reservation.table_name} ({reservation.table_capacity} Kişilik)
-                  </span>
-                )}
-                <span className="flex items-center gap-1">
-                  <Users className="h-3 w-3" />
-                  {reservation.party_size} Kişi
-                </span>
-              </div>
+              <h3 className="font-semibold">
+                {reservation.customerName}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {reservation.customerPhone}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <Badge 
+                variant={
+                  reservation.status === 'confirmed' ? 'default' :
+                  reservation.status === 'pending' ? 'secondary' :
+                  reservation.status === 'cancelled' ? 'destructive' :
+                  'outline'
+                }
+              >
+                {reservation.status === 'confirmed' ? 'Onaylandı' :
+                 reservation.status === 'pending' ? 'Beklemede' :
+                 reservation.status === 'cancelled' ? 'İptal' : 
+                 reservation.status}
+              </Badge>
+              <ReservationActions 
+                reservationId={reservation.id}
+                onEdit={handleEdit}
+              />
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Badge className={getStatusColor(reservation.status)}>
-              {reservation.status === 'confirmed' ? 'Onaylandı' : 
-               reservation.status === 'cancelled' ? 'İptal' : 'Bekliyor'}
-            </Badge>
-            <ReservationActions reservation={reservation} onEdit={onEdit} />
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{formattedDate}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ClockIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{formattedTime}</span>
+            </div>
           </div>
-        </div>
 
-        {reservation.notes && (
-          <div className="mt-4 text-sm text-muted-foreground">
-            <p>{reservation.notes}</p>
+          <div className="mt-4 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <UsersIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{reservation.guestCount} Kişi</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <TableIcon className="w-4 h-4 text-muted-foreground" />
+              <span className="text-sm">{reservation.tableName}</span>
+            </div>
           </div>
-        )}
 
-        <div className="absolute bottom-4 right-4">
-          <CountdownTimer 
-            reservationDate={reservation.reservation_date}
-            reservationTime={reservation.reservation_time}
-          />
+          {reservation.specialnotes && (
+            <div className="mt-4">
+              <p className="text-sm text-muted-foreground">
+                {reservation.specialnotes}
+              </p>
+            </div>
+          )}
         </div>
-      </Card>
-    </motion.div>
+      </motion.div>
+
+      {showEditForm && (
+        <ReservationForm
+          reservationId={reservation.id}
+          onClose={() => setShowEditForm(false)}
+        />
+      )}
+    </>
   );
 }

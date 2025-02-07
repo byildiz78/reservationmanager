@@ -13,11 +13,51 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
+interface Position {
+    x: number;
+    y: number;
+}
+
+interface Size {
+    width: number;
+    height: number;
+}
+
+interface Table {
+    table_id: number;
+    table_name: string;
+    capacity: number;
+    status: "available" | "reserved" | "occupied";
+    shape: "rectangle" | "circle";
+    position: Position;
+    size: Size;
+    category_name: string;
+    min_capacity: number;
+    max_capacity: number;
+    reservation_status: "available" | "reserved" | "occupied";
+}
+
+interface Section {
+    section_id: number;
+    section_name: string;
+    description: string;
+    capacity: number | null;
+    is_smoking: boolean;
+    is_outdoor: boolean;
+    is_active: boolean;
+    tables: Table[];
+}
+
+interface ApiResponse {
+    success: boolean;
+    data: Section[];
+}
+
 interface SectionListProps {
-    sections: any[];
-    onEditSection: (section: any) => void;
-    onAddTable: (sectionId: string) => void;
-    onEditTable: (table: any, sectionId: string) => void;
+    sections: Section[];
+    onEditSection: (section: Section) => void;
+    onAddTable: (sectionId: number) => void;
+    onEditTable: (table: Table, sectionId: number) => void;
 }
 
 export const SectionList: React.FC<SectionListProps> = ({
@@ -31,28 +71,27 @@ export const SectionList: React.FC<SectionListProps> = ({
     const [selectedSection, setSelectedSection] = React.useState<string>('all');
 
     const filteredSections = sections.filter(section => {
-        if (selectedSection !== 'all' && section.id !== selectedSection) {
+        if (selectedSection !== 'all' && section.section_id.toString() !== selectedSection) {
             return false;
         }
 
-        const hasMatchingTable = section.tables.some((table: any) =>
-            table.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            table.location?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            table.category?.name.toLowerCase().includes(searchTerm.toLowerCase())
+        const hasMatchingTable = section.tables.some((table) =>
+            (table.table_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (table.category_name?.toLowerCase() || '').includes(searchTerm.toLowerCase())
         );
 
         return searchTerm === '' || 
-               section.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               section.section_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                hasMatchingTable;
     });
 
     const filteredSectionsWithTables = filteredSections.map(section => ({
         ...section,
-        tables: section.tables.filter((table: any) => {
+        tables: section.tables.filter((table) => {
             if (selectedFilter === 'all') return true;
-            if (selectedFilter === 'available') return table.reservationStatus === 'available';
-            if (selectedFilter === 'reserved') return table.reservationStatus === 'reserved';
-            if (selectedFilter === 'occupied') return table.reservationStatus === 'occupied';
+            if (selectedFilter === 'available') return table.reservation_status === 'available';
+            if (selectedFilter === 'reserved') return table.reservation_status === 'reserved';
+            if (selectedFilter === 'occupied') return table.reservation_status === 'occupied';
             return true;
         })
     }));
@@ -94,8 +133,8 @@ export const SectionList: React.FC<SectionListProps> = ({
                         <SelectContent>
                             <SelectItem value="all">Tüm Bölümler</SelectItem>
                             {sections.map(section => (
-                                <SelectItem key={section.id} value={section.id}>
-                                    {section.name}
+                                <SelectItem key={section.section_id} value={section.section_id.toString()}>
+                                    {section.section_name}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -115,29 +154,29 @@ export const SectionList: React.FC<SectionListProps> = ({
 
             <div className="grid grid-cols-1 gap-6">
                 {filteredSectionsWithTables.map((section) => (
-                    <Card key={section.id} className="overflow-hidden">
+                    <Card key={section.section_id} className="overflow-hidden">
                         <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
                             <div className="flex justify-between items-start">
                                 <div>
-                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">{section.name}</h2>
+                                    <h2 className="text-2xl font-bold text-gray-900 mb-2">{section.section_name}</h2>
                                     <p className="text-gray-600 mb-3">{section.description}</p>
                                     <div className="flex flex-wrap gap-2">
                                         <Badge variant="secondary">
                                             {section.tables.length} Masa
                                         </Badge>
-                                        {section.isSmoking && (
+                                        {section.is_smoking && (
                                             <Badge variant="destructive">
                                                 Sigara İçilebilir
                                             </Badge>
                                         )}
-                                        {section.isOutdoor && (
+                                        {section.is_outdoor && (
                                             <Badge variant="default" className="bg-green-500">
                                                 Açık Alan
                                             </Badge>
                                         )}
-                                        {section.isVip && (
+                                        {section.is_active && (
                                             <Badge variant="default" className="bg-purple-500">
-                                                VIP
+                                                Aktif
                                             </Badge>
                                         )}
                                     </div>
@@ -151,7 +190,7 @@ export const SectionList: React.FC<SectionListProps> = ({
                                         <PencilIcon className="h-4 w-4" />
                                     </Button>
                                     <Button
-                                        onClick={() => onAddTable(section.id)}
+                                        onClick={() => onAddTable(section.section_id)}
                                     >
                                         Masa Ekle
                                     </Button>
@@ -161,7 +200,7 @@ export const SectionList: React.FC<SectionListProps> = ({
                         {section.tables.length > 0 ? (
                             <TableList 
                                 tables={section.tables} 
-                                onEditTable={(table) => onEditTable(table, section.id)} 
+                                onEditTable={(table) => onEditTable(table, section.section_id)} 
                             />
                         ) : (
                             <div className="p-8 text-center text-gray-500">

@@ -6,14 +6,32 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
+interface Position {
+    x: number;
+    y: number;
+}
+
+interface Size {
+    width: number;
+    height: number;
+}
+
+interface TableFormData {
+    table_name: string;
+    capacity: number;
+    section_id: string;
+    category_id: string;
+    status: "available" | "reserved" | "occupied";
+    shape: "rectangle" | "circle";
+    position: Position;
+    size: Size;
+    min_capacity: number;
+    max_capacity: number;
+    reservation_status: "available" | "reserved" | "occupied";
+}
+
 interface TableFormProps {
-    formData: {
-        table_name: string;
-        capacity: number;
-        section_id: string;
-        category_id: string;
-        is_active: boolean;
-    };
+    formData: TableFormData;
     sections: Array<{
         section_id: number;
         section_name: string;
@@ -23,8 +41,8 @@ interface TableFormProps {
         category_name: string;
     }>;
     onSubmit: (e: React.FormEvent) => void;
-    onChange: (field: string, value: string | number | boolean) => void;
-    isSubmitting: boolean;
+    onChange: (formData: TableFormData) => void;
+    loading: boolean;
     title: string;
     onCancel: () => void;
 }
@@ -35,10 +53,17 @@ export const TableForm: React.FC<TableFormProps> = ({
     categories,
     onSubmit,
     onChange,
-    isSubmitting,
+    loading,
     title,
     onCancel
 }) => {
+    const handleChange = (field: keyof TableFormData, value: any) => {
+        onChange({
+            ...formData,
+            [field]: value
+        });
+    };
+
     return (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg shadow-lg w-[800px] max-h-[90vh] flex flex-col">
@@ -47,13 +72,13 @@ export const TableForm: React.FC<TableFormProps> = ({
                 </div>
 
                 <ScrollArea className="flex-1 p-6">
-                    <form onSubmit={onSubmit} className="space-y-4">
+                    <form id="table-form" onSubmit={onSubmit} className="space-y-4">
                         <div>
                             <Label htmlFor="table_name">Masa Adı</Label>
                             <Input
                                 id="table_name"
                                 value={formData.table_name}
-                                onChange={(e) => onChange('table_name', e.target.value)}
+                                onChange={(e) => handleChange('table_name', e.target.value)}
                                 required
                             />
                         </div>
@@ -64,7 +89,7 @@ export const TableForm: React.FC<TableFormProps> = ({
                                 id="capacity"
                                 type="number"
                                 value={formData.capacity}
-                                onChange={(e) => onChange('capacity', parseInt(e.target.value))}
+                                onChange={(e) => handleChange('capacity', parseInt(e.target.value))}
                                 min={1}
                                 required
                             />
@@ -74,7 +99,7 @@ export const TableForm: React.FC<TableFormProps> = ({
                             <Label htmlFor="section_id">Bölüm</Label>
                             <Select
                                 value={formData.section_id}
-                                onValueChange={(value) => onChange('section_id', value)}
+                                onValueChange={(value) => handleChange('section_id', value)}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Bölüm seçin" />
@@ -93,7 +118,7 @@ export const TableForm: React.FC<TableFormProps> = ({
                             <Label htmlFor="category_id">Kategori</Label>
                             <Select
                                 value={formData.category_id}
-                                onValueChange={(value) => onChange('category_id', value)}
+                                onValueChange={(value) => handleChange('category_id', value)}
                             >
                                 <SelectTrigger>
                                     <SelectValue placeholder="Kategori seçin" />
@@ -108,13 +133,109 @@ export const TableForm: React.FC<TableFormProps> = ({
                             </Select>
                         </div>
 
-                        <div className="flex items-center space-x-2">
-                            <Switch
-                                id="is_active"
-                                checked={formData.is_active}
-                                onCheckedChange={(checked) => onChange('is_active', checked)}
-                            />
-                            <Label htmlFor="is_active">Aktif</Label>
+                        <div>
+                            <Label htmlFor="shape">Şekil</Label>
+                            <Select
+                                value={formData.shape}
+                                onValueChange={(value) => handleChange('shape', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Şekil seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="rectangle">Dikdörtgen</SelectItem>
+                                    <SelectItem value="circle">Daire</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div>
+                            <Label>Konum</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <Label htmlFor="position_x">X</Label>
+                                    <Input
+                                        id="position_x"
+                                        type="number"
+                                        value={formData.position.x}
+                                        onChange={(e) => handleChange('position', { ...formData.position, x: parseInt(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="position_y">Y</Label>
+                                    <Input
+                                        id="position_y"
+                                        type="number"
+                                        value={formData.position.y}
+                                        onChange={(e) => handleChange('position', { ...formData.position, y: parseInt(e.target.value) })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label>Boyut</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <Label htmlFor="size_width">Genişlik</Label>
+                                    <Input
+                                        id="size_width"
+                                        type="number"
+                                        value={formData.size.width}
+                                        onChange={(e) => handleChange('size', { ...formData.size, width: parseInt(e.target.value) })}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="size_height">Yükseklik</Label>
+                                    <Input
+                                        id="size_height"
+                                        type="number"
+                                        value={formData.size.height}
+                                        onChange={(e) => handleChange('size', { ...formData.size, height: parseInt(e.target.value) })}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label>Kapasite Aralığı</Label>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                    <Label htmlFor="min_capacity">Min Kapasite</Label>
+                                    <Input
+                                        id="min_capacity"
+                                        type="number"
+                                        value={formData.min_capacity}
+                                        onChange={(e) => handleChange('min_capacity', parseInt(e.target.value))}
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="max_capacity">Max Kapasite</Label>
+                                    <Input
+                                        id="max_capacity"
+                                        type="number"
+                                        value={formData.max_capacity}
+                                        onChange={(e) => handleChange('max_capacity', parseInt(e.target.value))}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="status">Durum</Label>
+                            <Select
+                                value={formData.status}
+                                onValueChange={(value) => handleChange('status', value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Durum seçin" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="available">Müsait</SelectItem>
+                                    <SelectItem value="reserved">Rezerve</SelectItem>
+                                    <SelectItem value="occupied">Dolu</SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
                     </form>
                 </ScrollArea>
@@ -123,16 +244,16 @@ export const TableForm: React.FC<TableFormProps> = ({
                     <Button
                         variant="outline"
                         onClick={onCancel}
-                        disabled={isSubmitting}
+                        disabled={loading}
                     >
                         İptal
                     </Button>
                     <Button
                         type="submit"
                         form="table-form"
-                        disabled={isSubmitting}
+                        disabled={loading}
                     >
-                        {isSubmitting ? 'Kaydediliyor...' : 'Kaydet'}
+                        {loading ? 'Kaydediliyor...' : 'Kaydet'}
                     </Button>
                 </div>
             </div>

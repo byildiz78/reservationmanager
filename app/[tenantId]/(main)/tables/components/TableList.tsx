@@ -1,6 +1,5 @@
 import React from 'react';
-import { PencilIcon, Users, MapPin } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { MapPin, Users } from 'lucide-react';
 import {
     Table,
     TableBody,
@@ -9,39 +8,64 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
-interface TableListProps {
-    tables: any[];
-    onEditTable: (table: any) => void;
+interface Position {
+    x: number;
+    y: number;
 }
 
+interface Size {
+    width: number;
+    height: number;
+}
+
+interface TableData {
+    table_id: number;
+    table_name: string;
+    capacity: number;
+    status: "available" | "reserved" | "occupied";
+    shape: "rectangle" | "circle";
+    position: Position;
+    size: Size;
+    category_name: string;
+    min_capacity: number;
+    max_capacity: number;
+    reservation_status: "available" | "reserved" | "occupied";
+}
+
+interface TableListProps {
+    tables: TableData[];
+    onEditTable: (table: TableData) => void;
+}
+
+const getStatusColor = (status: string) => {
+    switch (status) {
+        case 'available':
+            return 'border-green-500 text-green-500';
+        case 'reserved':
+            return 'border-yellow-500 text-yellow-500';
+        case 'occupied':
+            return 'border-red-500 text-red-500';
+        default:
+            return 'border-gray-500 text-gray-500';
+    }
+};
+
+const getStatusText = (status: string) => {
+    switch (status) {
+        case 'available':
+            return 'Müsait';
+        case 'reserved':
+            return 'Rezerve';
+        case 'occupied':
+            return 'Dolu';
+        default:
+            return 'Bilinmiyor';
+    }
+};
+
 export const TableList: React.FC<TableListProps> = ({ tables, onEditTable }) => {
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case 'available':
-                return 'bg-green-100 text-green-800 border-green-200';
-            case 'reserved':
-                return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-            case 'occupied':
-                return 'bg-red-100 text-red-800 border-red-200';
-            default:
-                return 'bg-gray-100 text-gray-800 border-gray-200';
-        }
-    };
-
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case 'available':
-                return 'Müsait';
-            case 'reserved':
-                return 'Rezerve';
-            case 'occupied':
-                return 'Dolu';
-            default:
-                return status;
-        }
-    };
-
     return (
         <div className="p-4">
             <Table>
@@ -57,34 +81,31 @@ export const TableList: React.FC<TableListProps> = ({ tables, onEditTable }) => 
                 </TableHeader>
                 <TableBody>
                     {tables.map((table) => (
-                        <TableRow key={table.id} className="hover:bg-gray-50">
+                        <TableRow key={table.table_id} className="hover:bg-gray-50">
                             <TableCell className="font-medium">
-                                {table.name}
+                                {table.table_name}
                             </TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-1 text-gray-600">
-                                    <Users className="h-4 w-4" />
-                                    <span>{table.capacity} Kişilik</span>
+                                    <Users className="h-4 w-4" /> {table.capacity}
                                 </div>
                             </TableCell>
                             <TableCell>
-                                {table.category && (
-                                    <div>
-                                        <div className="font-medium">
-                                            {table.category.name}
-                                        </div>
-                                        <div className="text-xs text-gray-500">
-                                            {table.category.minCapacity}-{table.category.maxCapacity} Kişilik
-                                        </div>
+                                <div>
+                                    <div className="font-medium">
+                                        {table.category_name}
                                     </div>
-                                )}
+                                    <div className="text-xs text-gray-500">
+                                        {table.min_capacity}-{table.max_capacity} Kişilik
+                                    </div>
+                                </div>
                             </TableCell>
                             <TableCell>
                                 <div className="flex items-center gap-1 text-gray-600">
-                                    {table.location ? (
+                                    {table.position ? (
                                         <>
                                             <MapPin className="h-4 w-4" />
-                                            <span>{table.location}</span>
+                                            <span>{table.position.x}-{table.position.y}</span>
                                         </>
                                     ) : (
                                         <span className="text-gray-400">-</span>
@@ -92,17 +113,17 @@ export const TableList: React.FC<TableListProps> = ({ tables, onEditTable }) => 
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(table.reservationStatus)}`}>
-                                    {getStatusText(table.reservationStatus)}
+                                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getStatusColor(table.reservation_status)}`}>
+                                    {getStatusText(table.reservation_status)}
                                 </span>
                             </TableCell>
                             <TableCell className="text-right">
                                 <Button
                                     variant="ghost"
-                                    size="icon"
+                                    size="sm"
                                     onClick={() => onEditTable(table)}
                                 >
-                                    <PencilIcon className="h-4 w-4" />
+                                    Düzenle
                                 </Button>
                             </TableCell>
                         </TableRow>
