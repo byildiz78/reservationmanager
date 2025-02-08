@@ -2,69 +2,97 @@ import { useState, useEffect } from 'react';
 import api from '@/lib/axios';
 
 interface Table {
+  table_id: number;
+  table_name: string;
+  section_name: string;
+  table_capacity: number;
+  table_status: string;
+  section_description?: string;
+}
+
+interface Reservation {
+  id: number;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  party_size: number;
+  reservation_date: string;
+  reservation_time: string;
+  status: string;
+  notes: string;
+  specialnotes: string;
+  is_smoking: boolean;
+  is_outdoor: boolean;
+  is_vip: boolean | null;
+  table: {
     table_id: number;
     table_name: string;
-    table_capacity: number;
-    table_status: string;
-    section_id: number;
-    section_name: string;
-    section_description: string | null;
-    is_smoking: boolean;
-    is_outdoor: boolean;
-    is_vip: boolean;
+    table_capacity?: number;
+    table_status?: string;
+  };
+  section: {
+    id: number;
+    name: string;
+    description?: string;
+  };
 }
 
 export function useReservation(reservationId: number) {
-    const [reservation, setReservation] = useState<any>(null);
-    const [tables, setTables] = useState<Table[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const [reservation, setReservation] = useState<Reservation | null>(null);
+  const [tables, setTables] = useState<Table[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-    const fetchTables = async () => {
-        try {
-            const response = await api.get('/api/postgres/list-tables');
-            if (response.data.success) {
-                setTables(response.data.data);
-            }
-        } catch (err) {
-            console.error('Error fetching tables:', err);
-        }
-    };
+  const fetchReservation = async (reservationId: string) => {
+    setLoading(true);
+    try {
+      // First fetch tables to get section info
+      const tablesResponse = await api.get('/api/postgres/list-tables');
+      const tables = tablesResponse.data.data || [];
 
-    const fetchReservation = async () => {
-        try {
-            setLoading(true);
-            setError(null);
-            const response = await api.get(`/api/postgres/get-reservation?reservationId=${reservationId}`);
-            console.log('API Response:', response.data);
-            
-            if (!response.data) {
-                throw new Error('No data received from API');
-            }
+      // Then fetch reservation
+      const reservationResponse = await api.get(`/api/postgres/get-reservation?reservationId=${reservationId}`);
+      
+      if (!reservationResponse.data) {
+        throw new Error('No reservation data received');
+      }
 
-            // API returns the data directly
-            const reservationData = response.data;
-            console.log('Processed reservation data:', reservationData);
-            
-            setReservation(reservationData);
-        } catch (err) {
-            console.error('Error fetching reservation:', err);
-            setError(err instanceof Error ? err.message : 'Failed to fetch reservation');
-        } finally {
-            setLoading(false);
-        }
-    };
+      // Find the table and its section
+      const reservationData = reservationResponse.data;
+      const tableId = reservationData.table_id;
+      const matchingTable = tables.find(t => t.table_id === Number(tableId));
 
-    useEffect(() => {
-        if (reservationId) {
-            fetchReservation();
-            fetchTables();
-        }
-    }, [reservationId]);
+      // Ensure we have valid table and section data
+      const processedData = {
+        ...reservationData,
+        table: matchingTable ? {
+          table_id: matchingTable.table_id,
+          table_name: matchingTable.table_name,
+          table_capacity: matchingTable.table_capacity,
+          table_status: matchingTable.table_status
+        } : null,
+        section: matchingTable ? {
+          id: matchingTable.section_id,
+          name: matchingTable.section_name || '',
+          description: ''
+        } : null
+      };
 
-    const refetch = () => {
-        return fetchReservation();
-    };
+      setReservation(processedData);
+      setLoading(false);
+      return processedData;
+    } catch (error) {
+      setError(error);
+      setLoading(false);
+      throw error;
+    }
+  };
 
-    return { reservation, tables, loading, error, refetch };
+  useEffect(() => {
+    if (reservationId) {
+      fetchReservation(String(reservationId));
+    }
+  }, [reservationId]);
+
+  return { reservation, tables, loading, error };
 }

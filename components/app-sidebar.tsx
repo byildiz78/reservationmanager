@@ -31,13 +31,13 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 title: "Dashboard",
                 icon: LucideIcons.LayoutDashboard,
                 isActive: true,
-                url: "/dashboard"
+                url: "dashboard"
             },
             {
                 title: "Masa Yönetimi",
                 icon: LucideIcons.Table,
                 isActive: true,
-                url: "/tables"
+                url: "tables"
             },
             {
                 title: "Rezervasyonlar",
@@ -47,11 +47,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 items: [
                     {
                         title: "Rezervasyon Listesi",
-                        url: "/reservations/list"
+                        url: "reservations"
                     },
                     {
                         title: "Rezervasyon Takvimi",
-                        url: "/reservations/calendar"
+                        url: "reservations/calendar"
                     }
                 ]
             },
@@ -59,7 +59,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 title: "Raporlar",
                 icon: LucideIcons.BarChart,
                 isActive: true,
-                url: "/reports"
+                url: "reports"
             }
         ];
         return items;

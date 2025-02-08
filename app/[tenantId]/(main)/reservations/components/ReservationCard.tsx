@@ -24,18 +24,23 @@ export interface Reservation {
   guestCount: number;
   reservationDate: string;
   reservationTime: string;
-  tableId: number;
-  tableName: string;
-  tableCapacity: number;
-  tableStatus: string;
-  sectionName: string;
-  sectionDescription: string | null;
   status: 'confirmed' | 'pending' | 'awaiting_payment' | 'payment_received' | 'customer_arrived' | 'customer_no_show' | 'customer_cancelled';
   notes: string | null;
   specialnotes: string | null;
   is_smoking: boolean;
   is_outdoor: boolean;
   is_vip: boolean;
+  table: {
+    table_id: number;
+    table_name: string;
+    table_capacity: number;
+    table_status: string;
+  };
+  section: {
+    id: number;
+    name: string;
+    description: string | null;
+  };
 }
 
 interface ReservationCardProps {
@@ -139,35 +144,54 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
 
   const handleEdit = () => {
     console.log('Original reservation:', reservation);
-    console.log('Reservation date:', reservation.reservationDate);
+    console.log('Original reservation table and section:', {
+      table: reservation.table,
+      section: reservation.section,
+      raw: {
+        tableId: reservation.tableId,
+        tableName: reservation.tableName,
+        sectionName: reservation.sectionName,
+        sectionId: reservation.sectionId
+      }
+    });
     
-    // Format date to YYYY-MM-DD without timezone conversion
-    const dateStr = reservation.reservationDate;
-    console.log('Date string to send:', dateStr);
-    
+    // Transform the data to match the form's expected structure
     const editData = {
       id: reservation.id,
-      customer_name: reservation.customerName,
-      customer_phone: reservation.customerPhone,
-      customer_email: reservation.customerEmail,
-      party_size: reservation.guestCount,
-      reservation_date: dateStr,
-      reservation_time: reservation.reservationTime,
-      table_id: reservation.tableId,
-      table_name: reservation.tableName,
-      table_capacity: reservation.tableCapacity,
-      table_status: reservation.tableStatus,
-      section_name: reservation.sectionName,
-      section_description: reservation.sectionDescription,
-      status: reservation.status,
-      notes: reservation.notes,
-      specialnotes: reservation.specialnotes,
-      is_smoking: reservation.is_smoking,
-      is_outdoor: reservation.is_outdoor,
-      is_vip: reservation.is_vip
+      customer_name: reservation.customerName || reservation.customer_name || '',
+      customer_phone: reservation.customerPhone || reservation.customer_phone || '',
+      customer_email: reservation.customerEmail || reservation.customer_email || '',
+      party_size: reservation.guestCount || reservation.party_size || 2,
+      reservation_date: reservation.reservationDate || reservation.reservation_date || '',
+      reservation_time: (reservation.reservationTime || reservation.reservation_time || '').slice(0, 5),
+      status: reservation.status || 'pending',
+      notes: reservation.notes || '',
+      specialnotes: reservation.specialnotes || '',
+      is_smoking: Boolean(reservation.is_smoking),
+      is_outdoor: Boolean(reservation.is_outdoor),
+      is_vip: reservation.is_vip === null ? false : Boolean(reservation.is_vip),
+      
+      // Handle nested table data
+      table: reservation.table || {
+        table_id: 0,
+        table_name: '',
+        table_capacity: 0,
+        table_status: 'available'
+      },
+      
+      // Handle nested section data
+      section: reservation.section || {
+        id: 0,
+        name: '',
+        description: ''
+      }
     };
     
-    console.log('Edit Data being sent to modal:', editData);
+    console.log('Edit Data table and section:', {
+      table: editData.table,
+      section: editData.section
+    });
+    
     onEdit(editData);
     setShowEditForm(true);
   };
@@ -288,7 +312,7 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
                 <TableIcon className="w-4 h-4 text-gray-500" />
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Masa</div>
-                  <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{reservation.tableName}</div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{reservation.table?.table_name || 'Masa seçilmedi'}</div>
                 </div>
               </div>
             </div>
@@ -360,24 +384,24 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
         onClose={handleClose}
         initialData={{
           id: reservation.id,
-          customer_name: reservation.customerName,
-          customer_phone: reservation.customerPhone,
-          customer_email: reservation.customerEmail,
-          party_size: reservation.guestCount,
-          reservation_date: reservation.reservationDate,
-          reservation_time: reservation.reservationTime,
-          table_id: reservation.tableId,
-          table_name: reservation.tableName,
-          table_capacity: reservation.tableCapacity,
-          table_status: reservation.tableStatus,
-          section_name: reservation.sectionName,
-          section_description: reservation.sectionDescription,
-          status: reservation.status,
-          notes: reservation.notes,
-          specialnotes: reservation.specialnotes,
-          is_smoking: reservation.is_smoking,
-          is_outdoor: reservation.is_outdoor,
-          is_vip: reservation.is_vip
+          customer_name: reservation.customerName || reservation.customer_name || '',
+          customer_phone: reservation.customerPhone || reservation.customer_phone || '',
+          customer_email: reservation.customerEmail || reservation.customer_email || '',
+          party_size: reservation.guestCount || reservation.party_size || 2,
+          reservation_date: reservation.reservationDate || reservation.reservation_date || '',
+          reservation_time: reservation.reservationTime || reservation.reservation_time || '',
+          table_id: reservation.table?.table_id || 0,
+          table_name: reservation.table?.table_name || '',
+          table_capacity: reservation.table?.table_capacity || 0,
+          table_status: reservation.table?.table_status || 'available',
+          section_name: reservation.section?.name || '',
+          section_description: reservation.section?.description || '',
+          status: reservation.status || 'pending',
+          notes: reservation.notes || '',
+          specialnotes: reservation.specialnotes || '',
+          is_smoking: Boolean(reservation.is_smoking),
+          is_outdoor: Boolean(reservation.is_outdoor),
+          is_vip: reservation.is_vip === null ? false : Boolean(reservation.is_vip)
         }}
         onUpdate={onUpdate}  // Pass onUpdate to modal as well
       />

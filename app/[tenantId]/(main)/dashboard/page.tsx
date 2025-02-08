@@ -29,12 +29,11 @@ interface StatCard {
 export default function Dashboard() {
     const { activeTab } = useTabStore();
     const [countdown, setCountdown] = useState(REFRESH_INTERVAL / 1000);
-    const [selectedBranches, setSelectedBranches] = useState<number[]>([]);
     const [refreshTrigger, setRefreshTrigger] = useState(0);
     const { settings } = useSettingsStore();
     const { selectedFilter } = useFilterStore();
     const [stats, setStats] = useState<StatCard[]>([]);
-    const { fetchReservations, fetchTables, reservations, isLoading } = useReservationStore();
+    const { fetchInitialData, reservations, isLoading } = useReservationStore();
 
     // API'den gelen verileri işleyerek istatistikleri hesapla
     const calculateStats = () => {
@@ -146,13 +145,9 @@ export default function Dashboard() {
     };
 
     useEffect(() => {
-        if (selectedFilter.branches) {
-            setSelectedBranches(selectedFilter.branches.map(item => item.BranchID));
-        }
-    }, [selectedFilter]);
-
-    useEffect(() => {
         if (activeTab === "dashboard") {
+            fetchInitialData();
+            
             const countdownInterval = setInterval(() => {
                 setCountdown((prevCount) => {
                     if (prevCount <= 1) {
@@ -168,18 +163,10 @@ export default function Dashboard() {
     }, [activeTab]);
 
     useEffect(() => {
-        if (selectedBranches.length > 0) {
-            fetchReservations(selectedBranches);
-            fetchTables(selectedBranches);
+        if (activeTab === "dashboard" && refreshTrigger > 0) {
+            fetchInitialData();
         }
-    }, [selectedBranches, fetchReservations, fetchTables]);
-
-    useEffect(() => {
-        if (selectedBranches.length > 0) {
-            fetchReservations(selectedBranches);
-            fetchTables(selectedBranches);
-        }
-    }, [refreshTrigger, selectedBranches, fetchReservations, fetchTables]);
+    }, [activeTab, refreshTrigger]);
 
     useEffect(() => {
         calculateStats();
@@ -187,8 +174,77 @@ export default function Dashboard() {
 
     if (isLoading) {
         return (
-            <div className="flex justify-center items-center h-full">
-                <div className="text-lg font-medium text-foreground">Yükleniyor...</div>
+            <div className="h-full flex flex-col">
+                <div className="flex justify-between items-center py-3 px-3 bg-background/95 backdrop-blur-sm border-b border-border/60 sticky top-0 z-10">
+                    <div className="flex items-center gap-2">
+                        <div className="h-5 w-5 rounded-full bg-blue-500/20 dark:bg-blue-400/20 animate-pulse-soft" />
+                        <div className="h-8 w-64 bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-md animate-pulse" />
+                    </div>
+                    <div className="flex items-center gap-2 bg-card/95 backdrop-blur-sm border border-border/60 rounded-lg px-3 py-2">
+                        <div className="h-4 w-4 rounded-full bg-blue-500/20 dark:bg-blue-400/20 animate-spin" />
+                        <div className="h-4 w-16 bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded animate-pulse" />
+                    </div>
+                </div>
+
+                <div className="p-6 space-y-6 flex-1">
+                    <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                        {[...Array(6)].map((_, index) => (
+                            <div key={index} 
+                                className="relative group"
+                                style={{ 
+                                    animation: `fadeIn 0.5s ease-out ${index * 0.1}s both`
+                                }}
+                            >
+                                <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-indigo-500/5 dark:from-blue-500/10 dark:to-indigo-500/10 rounded-lg animate-pulse" />
+                                <div className="border border-gray-200/20 dark:border-gray-700/20 rounded-lg p-6 backdrop-blur-sm relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent skeleton-wave" />
+                                    
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="space-y-2">
+                                            <div className="h-5 w-32 bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded animate-pulse" />
+                                            <div className="h-3 w-24 bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded animate-pulse opacity-70" />
+                                        </div>
+                                        <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-100 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 animate-pulse-soft p-2">
+                                            <div className="h-full w-full rounded-lg bg-blue-500/20 dark:bg-blue-400/20 animate-pulse" />
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-3">
+                                        <div className="flex items-baseline gap-2">
+                                            <div className="h-8 w-20 bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded animate-pulse" />
+                                            <div className="h-5 w-12 rounded-full bg-green-100 dark:bg-green-900 animate-pulse-soft" />
+                                        </div>
+                                        <div className="h-4 w-24 bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded animate-pulse opacity-60" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 rounded-full bg-blue-500/20 dark:bg-blue-400/20 animate-pulse-soft" />
+                            <div className="h-8 w-48 bg-gradient-to-r from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-md animate-pulse" />
+                        </div>
+                        <div className="border border-gray-200/20 dark:border-gray-700/20 rounded-lg p-6 relative overflow-hidden">
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-blue-500/10 to-transparent skeleton-wave" />
+                            <div className="h-[400px] bg-gradient-to-br from-gray-200 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-lg animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+
+                <style jsx>{`
+                    @keyframes fadeIn {
+                        from {
+                            opacity: 0;
+                            transform: translateY(20px);
+                        }
+                        to {
+                            opacity: 1;
+                            transform: translateY(0);
+                        }
+                    }
+                `}</style>
             </div>
         );
     }
@@ -238,43 +294,115 @@ export default function Dashboard() {
                 <div className="p-6 space-y-6">
                     {/* İstatistik Kartları */}
                     <div className="grid gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                        {stats.map((stat, index) => (
-                            <motion.div
-                                key={index}
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ duration: 0.3, delay: index * 0.1 }}
-                            >
-                                <Card className="group hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 hover:-translate-y-1">
-                                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                        <CardTitle className="text-sm font-medium">
-                                            {stat.title}
-                                        </CardTitle>
-                                        <div className="p-2 rounded-lg bg-blue-50 dark:bg-blue-950 group-hover:scale-110 transition-transform duration-300">
-                                            {stat.icon}
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">
-                                            {stat.value}
-                                        </div>
-                                        <div className="flex items-center space-x-2">
-                                            <p className="text-xs text-muted-foreground">
-                                                {stat.description}
-                                            </p>
-                                            <span className={cn(
-                                                "text-xs font-medium px-1.5 py-0.5 rounded-full",
-                                                stat.trend > 0 
-                                                    ? "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400"
-                                                    : "bg-red-50 text-red-600 dark:bg-red-950 dark:text-red-400"
+                        {stats.map((stat, index) => {
+                            // Her kart için özel renk teması
+                            const themes = {
+                                0: {
+                                    bg: "from-blue-50/50 to-indigo-50/20 dark:from-blue-950/30 dark:to-indigo-950/10",
+                                    icon: "from-blue-100 to-indigo-50 dark:from-blue-900 dark:to-indigo-900",
+                                    iconColor: "text-blue-600 dark:text-blue-400",
+                                    gradient: "from-blue-600 to-indigo-600 dark:from-blue-400 dark:to-indigo-400",
+                                    border: "hover:border-blue-200/30 dark:hover:border-blue-700/30"
+                                },
+                                1: {
+                                    bg: "from-purple-50/50 to-pink-50/20 dark:from-purple-950/30 dark:to-pink-950/10",
+                                    icon: "from-purple-100 to-pink-50 dark:from-purple-900 dark:to-pink-900",
+                                    iconColor: "text-purple-600 dark:text-purple-400",
+                                    gradient: "from-purple-600 to-pink-600 dark:from-purple-400 dark:to-pink-400",
+                                    border: "hover:border-purple-200/30 dark:hover:border-purple-700/30"
+                                },
+                                2: {
+                                    bg: "from-emerald-50/50 to-teal-50/20 dark:from-emerald-950/30 dark:to-teal-950/10",
+                                    icon: "from-emerald-100 to-teal-50 dark:from-emerald-900 dark:to-teal-900",
+                                    iconColor: "text-emerald-600 dark:text-emerald-400",
+                                    gradient: "from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400",
+                                    border: "hover:border-emerald-200/30 dark:hover:border-emerald-700/30"
+                                },
+                                3: {
+                                    bg: "from-orange-50/50 to-amber-50/20 dark:from-orange-950/30 dark:to-amber-950/10",
+                                    icon: "from-orange-100 to-amber-50 dark:from-orange-900 dark:to-amber-900",
+                                    iconColor: "text-orange-600 dark:text-orange-400",
+                                    gradient: "from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400",
+                                    border: "hover:border-orange-200/30 dark:hover:border-orange-700/30"
+                                },
+                                4: {
+                                    bg: "from-rose-50/50 to-red-50/20 dark:from-rose-950/30 dark:to-red-950/10",
+                                    icon: "from-rose-100 to-red-50 dark:from-rose-900 dark:to-red-900",
+                                    iconColor: "text-rose-600 dark:text-rose-400",
+                                    gradient: "from-rose-600 to-red-600 dark:from-rose-400 dark:to-red-400",
+                                    border: "hover:border-rose-200/30 dark:hover:border-rose-700/30"
+                                },
+                                5: {
+                                    bg: "from-cyan-50/50 to-sky-50/20 dark:from-cyan-950/30 dark:to-sky-950/10",
+                                    icon: "from-cyan-100 to-sky-50 dark:from-cyan-900 dark:to-sky-900",
+                                    iconColor: "text-cyan-600 dark:text-cyan-400",
+                                    gradient: "from-cyan-600 to-sky-600 dark:from-cyan-400 dark:to-sky-400",
+                                    border: "hover:border-cyan-200/30 dark:hover:border-cyan-700/30"
+                                }
+                            };
+
+                            const theme = themes[index % 6];
+
+                            return (
+                                <motion.div
+                                    key={index}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ duration: 0.3, delay: index * 0.1 }}
+                                >
+                                    <Card className={cn(
+                                        "group overflow-hidden relative hover:shadow-lg transition-all duration-300 hover:-translate-y-1",
+                                        "dark:bg-gray-900/50 backdrop-blur-sm border border-gray-200/20",
+                                        theme.border
+                                    )}>
+                                        <div className={cn(
+                                            "absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-300",
+                                            theme.bg
+                                        )} />
+                                        
+                                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative">
+                                            <CardTitle className="text-sm font-medium bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                                                {stat.title}
+                                            </CardTitle>
+                                            <div className={cn(
+                                                "p-2.5 rounded-xl bg-gradient-to-br group-hover:scale-110 transition-all duration-300 shadow-sm",
+                                                theme.icon
                                             )}>
-                                                {stat.trend > 0 ? '+' : ''}{stat.trend}%
-                                            </span>
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            </motion.div>
-                        ))}
+                                                <div className={theme.iconColor}>
+                                                    {stat.icon}
+                                                </div>
+                                            </div>
+                                        </CardHeader>
+
+                                        <CardContent className="relative">
+                                            <div className="flex items-baseline space-x-2">
+                                                <div className={cn(
+                                                    "text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent",
+                                                    theme.gradient
+                                                )}>
+                                                    {stat.value}
+                                                </div>
+                                                {stat.trend !== 0 && (
+                                                    <span className={cn(
+                                                        "text-xs font-medium px-2 py-0.5 rounded-full transition-colors duration-200",
+                                                        stat.trend > 0 
+                                                            ? "bg-green-50 text-green-600 dark:bg-green-950/50 dark:text-green-400 group-hover:bg-green-100 dark:group-hover:bg-green-950"
+                                                            : "bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-400 group-hover:bg-red-100 dark:group-hover:bg-red-950"
+                                                    )}>
+                                                        {stat.trend > 0 ? '+' : ''}{stat.trend}%
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="mt-2 flex items-center space-x-2">
+                                                <p className="text-sm text-muted-foreground">
+                                                    {stat.description}
+                                                </p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </motion.div>
+                            );
+                        })}
                     </div>
 
                     {/* Rezervasyon Takvimi */}

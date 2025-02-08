@@ -21,6 +21,14 @@ export function TableLocationSection({
   onTableChange,
   onFieldChange,
 }: TableLocationSectionProps) {
+  console.log('TableLocationSection props:', {
+    formData,
+    sections,
+    filteredTables,
+    currentSectionId: formData.sectionId,
+    currentTableId: formData.tableId
+  });
+
   return (
     <div className="space-y-4">
       <div>
@@ -29,14 +37,20 @@ export function TableLocationSection({
           Bölüm
         </Label>
         <Select
-          value={formData.sectionId}
-          onValueChange={(value) => onFieldChange("sectionId", value)}
+          value={formData.sectionId || ''}
+          onValueChange={(value) => {
+            console.log('Section selected:', value);
+            onFieldChange("sectionId", value);
+            onFieldChange("sectionName", sections.find(s => String(s.section_id) === value)?.section_name || '');
+          }}
         >
           <SelectTrigger className="w-full h-11 bg-muted/50">
-            <SelectValue placeholder="Bölüm seçin" />
+            <SelectValue placeholder="Bölüm seçin">
+              {formData.sectionName || "Bölüm seçin"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {sections.map((section) => (
+            {Array.isArray(sections) && sections.map((section) => (
               <SelectItem 
                 key={section.section_id} 
                 value={String(section.section_id)}
@@ -54,40 +68,33 @@ export function TableLocationSection({
           Masa
         </Label>
         <Select
-          value={formData.tableId}
-          onValueChange={onTableChange}
+          value={formData.tableId || ''}
+          onValueChange={(value) => {
+            console.log('Table selected:', value);
+            onTableChange(value);
+            const selectedTable = filteredTables.find(t => String(t.table_id) === value);
+            if (selectedTable) {
+              onFieldChange("tableName", selectedTable.table_name);
+            }
+          }}
           disabled={!formData.sectionId}
         >
           <SelectTrigger className="w-full h-11 bg-muted/50">
-            <SelectValue placeholder="Masa seçin" />
+            <SelectValue placeholder="Masa seçin">
+              {formData.tableName || "Masa seçin"}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {filteredTables.map((table) => (
+            {Array.isArray(filteredTables) && filteredTables.map((table) => (
               <SelectItem 
                 key={table.table_id} 
                 value={String(table.table_id)}
               >
-                {table.table_name} ({table.table_capacity} Kişilik)
+                {table.table_name} ({table.table_capacity || 0} Kişilik)
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-      </div>
-
-      <div>
-        <Label className="flex items-center gap-2 mb-2">
-          <Users className="w-4 h-4 text-primary" />
-          Kişi Sayısı
-        </Label>
-        <Input
-          type="number"
-          value={formData.persons}
-          onChange={(e) =>
-            onFieldChange("persons", e.target.value)
-          }
-          min={1}
-          className="w-full h-11 bg-muted/50"
-        />
       </div>
     </div>
   );

@@ -4,36 +4,50 @@ import api from '@/lib/axios';
 // PostgreSQL types
 export interface Reservation {
   id: number;
-  customerName: string;
-  customerPhone: string;
-  guestCount: number;
-  reservationDate: string;
-  reservationTime: string;
-  tableId: number;
-  tableName: string;
-  sectionId: number;
-  sectionName: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_email: string;
+  party_size: number;
+  reservation_date: string;
+  reservation_time: string;
   status: string;
-  specialnotes?: string;
+  notes: string;
+  specialnotes: string;
+  is_smoking: boolean;
+  is_outdoor: boolean;
+  is_vip: boolean;
+  table: {
+    table_id: number;
+    table_name: string;
+    table_capacity: number;
+    table_status: string;
+  };
+  section: {
+    id: number;
+    name: string;
+    description: string;
+  };
 }
 
 export interface Table {
-  table_id: string;
+  table_id: number;
   table_name: string;
-  section_id: string;
-  capacity: number;
-  status: string;
+  table_capacity: number;
+  table_status: string;
+  section_id: number;
+  section_name: string;
+  is_smoking: boolean;
+  is_outdoor: boolean;
+  is_vip: boolean;
 }
 
 export interface Section {
-  id: number;
-  name: string;
-  description?: string;
-  capacity?: number;
-  isSmoking: boolean;
-  isOutdoor: boolean;
-  isActive: boolean;
-  tables?: any[];
+  section_id: number;
+  section_name: string;
+  description: string;
+  is_smoking: boolean;
+  is_outdoor: boolean;
+  is_vip: boolean;
 }
 
 interface ReservationStore {
@@ -48,6 +62,7 @@ interface ReservationStore {
   fetchReservations: () => Promise<void>;
   fetchSections: () => Promise<void>;
   fetchTables: () => Promise<void>;
+  fetchInitialData: () => Promise<void>;
   addReservation: (reservation: Omit<Reservation, 'id'>) => Promise<void>;
   updateReservation: (id: number, updates: Partial<Reservation>) => Promise<void>;
   deleteReservation: (id: number) => Promise<void>;
@@ -62,10 +77,29 @@ export const useReservationStore = create<ReservationStore>((set, get) => ({
   isLoading: false,
   error: null,
   setSelectedDate: (date: Date) => set({ selectedDate: date }),
+  
+  fetchReservations: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.get(`/api/postgres/reservations`);
+      if (response.data.success) {
+        set({ reservations: response.data.data });
+      } else {
+        throw new Error(response.data.error);
+      }
+    } catch (error) {
+      console.error('Rezervasyonlar yüklenirken hata:', error);
+      set({ 
+        error: error instanceof Error ? error.message : 'Rezervasyonlar yüklenirken bir hata oluştu'
+      });
+    } finally {
+      set({ isLoading: false });
+    }
+  },
+
   fetchSections: async () => {
     try {
       const response = await api.get(`/api/postgres/list-sections`);
-      console.log('Sections Response:', response.data);
       if (response.data.success) {
         set({ sections: response.data.data });
       } else {
@@ -73,14 +107,15 @@ export const useReservationStore = create<ReservationStore>((set, get) => ({
       }
     } catch (error) {
       console.error('Bölümler yüklenirken hata:', error);
-      set({ error: error instanceof Error ? error.message : 'Bölümler yüklenirken bir hata oluştu' });
+      set({ 
+        error: error instanceof Error ? error.message : 'Bölümler yüklenirken bir hata oluştu'
+      });
     }
   },
 
   fetchTables: async () => {
     try {
       const response = await api.get(`/api/postgres/list-tables`);
-      console.log('Tables Response:', response.data);
       if (response.data.success) {
         set({ tables: response.data.data });
       } else {
@@ -88,27 +123,36 @@ export const useReservationStore = create<ReservationStore>((set, get) => ({
       }
     } catch (error) {
       console.error('Masalar yüklenirken hata:', error);
-      set({ error: error instanceof Error ? error.message : 'Masalar yüklenirken bir hata oluştu' });
+      set({ 
+        error: error instanceof Error ? error.message : 'Masalar yüklenirken bir hata oluştu'
+      });
     }
   },
 
-  fetchReservations: async () => {
-
+  fetchInitialData: async () => {
     set({ isLoading: true, error: null });
     try {
-      const response = await api.get(`/api/postgres/reservations`);
-      console.log('API Response:', response.data);
-      if (response.data.success) {
-        set({ reservations: response.data.data, isLoading: false });
-      } else {
-        throw new Error(response.data.error);
+      const [reservationsRes, tablesRes, sectionsRes] = await Promise.all([
+        api.get(`/api/postgres/reservations`),
+        api.get(`/api/postgres/list-tables`),
+        api.get(`/api/postgres/list-sections`)
+      ]);
+
+      if (reservationsRes.data.success && tablesRes.data.success && sectionsRes.data.success) {
+        set({
+          reservations: reservationsRes.data.data,
+          tables: tablesRes.data.data,
+          sections: sectionsRes.data.data,
+          error: null
+        });
       }
     } catch (error) {
-      console.error('Rezervasyonlar yüklenirken hata:', error);
+      console.error('Veriler yüklenirken hata:', error);
       set({ 
-        error: error instanceof Error ? error.message : 'Rezervasyonlar yüklenirken bir hata oluştu',
-        isLoading: false 
+        error: error instanceof Error ? error.message : 'Veriler yüklenirken bir hata oluştu'
       });
+    } finally {
+      set({ isLoading: false });
     }
   },
 

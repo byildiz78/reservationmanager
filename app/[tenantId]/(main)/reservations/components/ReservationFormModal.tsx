@@ -3,12 +3,8 @@
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/toast/use-toast";
 import api from '@/lib/axios';
 import { FormData, Table, Section } from "./form/types";
@@ -27,131 +23,185 @@ interface ReservationFormModalProps {
   onUpdate?: () => void;
 }
 
-export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }: ReservationFormModalProps) {
-  const [formData, setFormData] = useState<FormData>({
-    customerName: "",
-    phone: "",
-    date: new Date(),
-    time: format(new Date(), 'HH:mm'),
-    persons: "2",
-    tableId: "",
-    sectionId: "",
-    type: "normal",
-    serviceType: "standart",
-    notes: "",
-    specialRequests: "",
-    status: "pending"
-  });
+// Move initial form data outside the component to avoid recreating it
+const defaultFormData: FormData = {
+  customerName: "",
+  phone: "",
+  date: new Date(),
+  time: format(new Date(), 'HH:mm'),
+  persons: "2",
+  tableId: "",
+  tableName: "",
+  sectionId: "",
+  sectionName: "",
+  type: "normal",
+  serviceType: "standart",
+  notes: "",
+  specialRequests: "",
+  status: "pending",
+  isVip: false,
+  isSmoking: false,
+  isOutdoor: false
+};
 
+export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }: ReservationFormModalProps) {
+  const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState("Veriler yükleniyor...");
   const [sections, setSections] = useState<Section[]>([]);
   const [filteredTables, setFilteredTables] = useState<Table[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      setLoadingMessage("Masalar ve bölümler yükleniyor...");
-      
-      try {
-        const [tablesResponse, sectionsResponse] = await Promise.all([
-          api.get('/api/postgres/list-tables'),
-          api.get('/api/postgres/list-sections')
-        ]);
+  // Fetch data and initialize form
+  const fetchData = async () => {
+    setLoading(true);
+    setLoadingMessage('Veriler yükleniyor...');
+    try {
+      // First load tables and sections
+      const [tablesRes, sectionsRes] = await Promise.all([
+        api.get('/api/postgres/list-tables'),
+        api.get('/api/postgres/list-sections')
+      ]);
 
-        if (tablesResponse.data.success) {
-          setTables(tablesResponse.data.data);
-          setFilteredTables(tablesResponse.data.data);
-        }
-
-        if (sectionsResponse.data.success) {
-          setSections(sectionsResponse.data.data);
-        }
-      } catch (err) {
-        console.error('Error fetching data:', err);
-        toast({
-          title: "Hata",
-          description: "Veriler yüklenirken bir hata oluştu.",
-          variant: "destructive"
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    if (isOpen && !initialData) {
-      const now = new Date();
-      now.setHours(now.getHours() + 1);
-      
-      setFormData({
-        customerName: "",
-        phone: "",
-        date: now,
-        time: format(now, 'HH:mm'),
-        persons: "2",
-        tableId: "",
-        sectionId: "",
-        type: "normal",
-        serviceType: "standart",
-        notes: "",
-        specialRequests: "",
-        status: "pending"
+      // Log raw responses for debugging
+      console.log('Raw API responses:', {
+        tables: tablesRes.data,
+        sections: sectionsRes.data
       });
-    }
-  }, [isOpen, initialData]);
 
-  useEffect(() => {
-    if (initialData) {
-      try {
-        let dateObj = new Date();
+      // Ensure we're setting arrays for both tables and sections
+      const tablesData = Array.isArray(tablesRes.data) ? tablesRes.data : [];
+      const sectionsData = Array.isArray(sectionsRes.data) ? sectionsRes.data : [];
+
+      // Set the tables and sections data first
+      setTables(tablesData);
+      setSections(sectionsData);
+
+      // Only proceed with form initialization if we have initialData
+      if (initialData) {
+        // Create a date object from the reservation date string
+        const dateStr = initialData.reservation_date;
+        const dateObj = new Date(dateStr);
         
-        if (initialData.reservation_date) {
-          dateObj = new Date(initialData.reservation_date);
+        // Get the time from either reservation_time or from the date
+        const timeStr = initialData.reservation_time || 
+                       dateObj.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) ||
+                       '19:00';
+
+        console.log('Processing date and time:', {
+          originalDateStr: dateStr,
+          parsedDate: dateObj,
+          timeStr: timeStr
+        });
+
+        // Get table ID and name directly from initialData.table
+        const effectiveTableId = initialData.table?.table_id || null;
+        const effectiveTableName = initialData.table?.table_name || '';
+
+        // Get section ID and name directly from initialData.section
+        const effectiveSectionId = initialData.section?.id || null;
+        const effectiveSectionName = initialData.section?.name || '';
+
+        // Set filtered tables based on section
+        if (effectiveSectionId) {
+          const sectionTables = tablesData.filter(table => 
+            table.section_id === effectiveSectionId
+          );
+          setFilteredTables(sectionTables);
+
+          // Log filtered tables for debugging
+          console.log('Filtered tables for section:', {
+            sectionId: effectiveSectionId,
+            tables: sectionTables
+          });
         }
 
-        const timeStr = initialData.reservation_time?.split(':').slice(0, 2).join(':') || '19:00';
-
-        const newFormData = {
-          customerName: initialData.customer_name || '',
-          phone: initialData.customer_phone || '',
-          date: dateObj,
-          time: timeStr,
-          persons: String(initialData.party_size) || '2',
-          tableId: String(initialData.table_id) || '',
-          sectionId: String(initialData.section_id) || '',
-          type: 'normal' as const,
-          serviceType: 'standart' as const,
-          notes: initialData.notes || '',
-          specialRequests: initialData.specialnotes || '',
-          status: (initialData.status || 'pending') as const
+        const debugData = {
+          timestamp: new Date().toISOString(),
+          initialData: {
+            raw: initialData,
+            processedIds: {
+              tableId: effectiveTableId,
+              sectionId: effectiveSectionId,
+              tableName: effectiveTableName,
+              sectionName: effectiveSectionName,
+              validation: {
+                nestedTableId: initialData.table?.table_id,
+                nestedSectionId: initialData.section?.id,
+                isTableIdValid: Boolean(effectiveTableId),
+                isSectionIdValid: Boolean(effectiveSectionId),
+                tablesLoaded: tablesData.length,
+                sectionsLoaded: sectionsData.length,
+                allTables: tablesData,
+                allSections: sectionsData
+              }
+            }
+          }
         };
 
-        setFormData(newFormData);
-      } catch (error) {
-        console.error('Error setting form data:', error);
-        toast({
-          title: "Hata",
-          description: "Form verisi yüklenirken bir hata oluştu.",
-          variant: "destructive",
+        console.log('Debug data:', debugData);
+        setDebugInfo(JSON.stringify(debugData, null, 2));
+
+        // Set form data with the values we have
+        setFormData({
+          customerName: initialData.customer_name || "",
+          phone: initialData.customer_phone || "",
+          email: initialData.customer_email || "",
+          partySize: initialData.party_size || 2,
+          persons: String(initialData.party_size || 2),
+          date: dateObj,
+          time: timeStr,
+          status: initialData.status || "pending",
+          notes: initialData.notes || "",
+          specialNotes: initialData.specialnotes || "",
+          isSmoking: initialData.is_smoking || false,
+          isOutdoor: initialData.is_outdoor || false,
+          isVip: initialData.is_vip || false,
+          tableId: String(effectiveTableId || ''),
+          tableName: effectiveTableName,
+          sectionId: String(effectiveSectionId || ''),
+          sectionName: effectiveSectionName
         });
       }
+    } catch (error) {
+      console.error('Error loading data:', error);
+      const errorData = {
+        error: 'Failed to load data',
+        details: error.message,
+        errorObject: error
+      };
+      console.log('Error data:', errorData);
+      setDebugInfo(JSON.stringify(errorData, null, 2));
+      toast({
+        title: "Hata",
+        description: "Veriler yüklenirken bir hata oluştu.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [initialData]);
+  };
+
+  // Fetch data when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchData();
+    } else {
+      setFormData(defaultFormData);
+      setDebugInfo('');
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (formData.sectionId) {
-      const sectionTables = tables.filter(
-        table => table.section_id === parseInt(formData.sectionId)
+      const sectionTables = tables.filter(table => 
+        String(table.section_id) === formData.sectionId
       );
       setFilteredTables(sectionTables);
     } else {
-      setFilteredTables(tables);
+      setFilteredTables([]);
     }
   }, [formData.sectionId, tables]);
 
@@ -164,48 +214,58 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
     setIsSubmitting(true);
 
     try {
-      const formattedDate = format(formData.date, 'yyyy-MM-dd');
+      // Create a new date at midnight in local timezone
+      const localDate = new Date(formData.date);
+      localDate.setHours(0, 0, 0, 0);
+
+      // Parse the time string
+      const [hours, minutes] = formData.time.split(':').map(Number);
+      
+      // Set the time on our local date
+      localDate.setHours(hours, minutes, 0, 0);
+
+      // Convert to ISO string for API
+      const reservationDateTime = localDate.toISOString();
+
+      console.log('Submitting reservation with date:', {
+        originalDate: formData.date,
+        localDate: localDate,
+        timeString: formData.time,
+        finalDateTime: reservationDateTime
+      });
 
       const reservationData = {
         customer_name: formData.customerName,
         customer_phone: formData.phone,
-        party_size: parseInt(formData.persons),
-        reservation_date: formattedDate,
+        customer_email: '',
+        party_size: Number(formData.persons),
+        reservation_date: reservationDateTime,
         reservation_time: formData.time,
-        table_id: parseInt(formData.tableId),
-        section_id: parseInt(formData.sectionId),
-        notes: formData.notes || '',
-        specialnotes: formData.specialRequests || '',
         status: formData.status,
-        branch_id: 1
+        notes: formData.notes,
+        specialnotes: formData.specialRequests,
+        is_smoking: formData.isSmoking,
+        is_outdoor: formData.isOutdoor,
+        is_vip: formData.isVip,
+        table_id: Number(formData.tableId) || null,
+        section_id: Number(formData.sectionId) || null
       };
 
-      let response;
       if (initialData?.id) {
-        response = await api.put(`/api/postgres/update-reservation?reservationId=${initialData.id}`, reservationData);
+        await api.put(`/api/postgres/update-reservation?reservationId=${initialData.id}`, reservationData);
       } else {
-        response = await api.post('/api/postgres/add-reservation', reservationData);
+        await api.post('/api/postgres/create-reservation', reservationData);
       }
 
-      if (response.data.success) {
-        toast({
-          title: initialData ? "Rezervasyon güncellendi" : "Rezervasyon oluşturuldu",
-          description: "İşlem başarıyla tamamlandı.",
-          variant: "success",
-        });
-
-        if (onUpdate) {
-          onUpdate();
-        }
-        onClose();
-      } else {
-        throw new Error(response.data.message || 'Bir hata oluştu');
+      onClose();
+      if (onUpdate) {
+        onUpdate();
       }
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error('Error submitting reservation:', error);
       toast({
         title: "Hata",
-        description: error.message || "Rezervasyon kaydedilirken bir hata oluştu.",
+        description: "Rezervasyon kaydedilirken bir hata oluştu.",
         variant: "destructive",
       });
     } finally {
@@ -330,6 +390,17 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
                     <NotesSection formData={formData} onFieldChange={handleFieldChange} />
                   </div>
                 </div>
+
+                {debugInfo && (
+                  <div className="mt-4 p-4 bg-muted/50 rounded-lg">
+                    <Label className="mb-2 text-sm font-medium">Debug Bilgileri</Label>
+                    <textarea
+                      readOnly
+                      value={debugInfo}
+                      className="w-full h-48 p-2 text-xs font-mono bg-background border rounded"
+                    />
+                  </div>
+                )}
               </form>
             )}
           </div>

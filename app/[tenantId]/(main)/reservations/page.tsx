@@ -15,7 +15,7 @@ import { ChartBarIcon, CalendarDaysIcon } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, Loader2 } from "lucide-react";
 import { useParams } from "next/navigation";
-import { toast } from "@/components/ui/toast";
+import { toast } from "@/components/ui/toast/use-toast";
 import { format } from "date-fns";
 
 export default function ReservationsPage() {
@@ -71,6 +71,8 @@ export default function ReservationsPage() {
   }, [date, setSelectedDate]);
 
   const handleEdit = (reservation: any) => {
+    // Pass the reservation data directly without transformation
+    // The API now returns the correct structure
     setSelectedReservation(reservation);
     setShowReservationModal(true);
   };
@@ -97,28 +99,45 @@ export default function ReservationsPage() {
   });
 
   const groupedReservations = filteredReservations.reduce((groups: Record<string, any[]>, reservation) => {
-    const sectionName = reservation.sectionName;
+    const sectionName = reservation.sectionName || reservation.section?.name || '';
     
     if (!groups[sectionName]) {
       groups[sectionName] = [];
     }
-    groups[sectionName].push({ 
-      ...reservation,
-      customer_name: reservation.customerName,
-      customer_phone: reservation.customerPhone,
-      party_size: reservation.guestCount,
-      reservation_id: reservation.id,
-      reservation_date: reservation.reservationDate,
-      reservation_time: reservation.reservationTime,
+
+    // Transform the data to a consistent format
+    const transformedReservation = {
+      id: reservation.id,
+      customerName: reservation.customerName || reservation.customer_name,
+      customerPhone: reservation.customerPhone || reservation.customer_phone,
+      customerEmail: reservation.customerEmail || reservation.customer_email || '',
+      guestCount: reservation.guestCount || reservation.party_size || 2,
+      reservationDate: reservation.reservationDate || reservation.reservation_date,
+      reservationTime: reservation.reservationTime || reservation.reservation_time,
+      status: reservation.status || 'pending',
+      notes: reservation.notes || '',
+      specialnotes: reservation.specialnotes || '',
+      is_smoking: Boolean(reservation.is_smoking),
+      is_outdoor: Boolean(reservation.is_outdoor),
+      is_vip: reservation.is_vip === null ? false : Boolean(reservation.is_vip),
+      
+      // Ensure table data is properly structured
       table: {
-        table_id: reservation.tableId,
-        table_name: reservation.tableName
+        table_id: Number(reservation.tableId || reservation.table?.table_id || 0),
+        table_name: reservation.tableName || reservation.table?.table_name || '',
+        table_capacity: reservation.tableCapacity || reservation.table?.table_capacity || 0,
+        table_status: reservation.tableStatus || reservation.table?.table_status || 'available'
       },
+      
+      // Ensure section data is properly structured
       section: {
-        name: reservation.sectionName,
-        id: reservation.sectionId
+        id: Number(reservation.sectionId || reservation.section?.id || 0),
+        name: reservation.sectionName || reservation.section?.name || '',
+        description: reservation.sectionDescription || reservation.section?.description || ''
       }
-    });
+    };
+
+    groups[sectionName].push(transformedReservation);
     return groups;
   }, {});
 
@@ -236,7 +255,7 @@ export default function ReservationsPage() {
                           console.log('Reservation data:', reservation);
                           return (
                             <ReservationCard
-                              key={reservation.reservation_id}
+                              key={reservation.id}
                               reservation={reservation}
                               table={reservation.table}
                               section={reservation.section}

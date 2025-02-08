@@ -179,6 +179,32 @@
   background-size: 200% 100%;
 }
 
+@keyframes skeleton-wave {
+  0% {
+    transform: translateX(-100%);
+  }
+  50%, 100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-wave {
+  animation: skeleton-wave 2s infinite;
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: .5;
+  }
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* Custom Scrollbar Styles */
 .custom-scrollbar {
   scrollbar-width: thin;

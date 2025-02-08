@@ -133,15 +133,6 @@ const RecursiveMenuItem = ({
 };
 
 export const NavMain = ({ items = [] }: { items?: NavItem[] }) => {
-    const defaultItems: NavItem[] = [
-        ...items,
-        {
-            title: "Bayi Sözleşme Yönetimi",
-            icon: FileText,
-            url: "branchcontract",
-            displayOrder: 3
-        }
-    ];
     const { addTab, setActiveTab, tabs, setTabFilter } = useTabStore()
     const {selectedFilter,setFilter} = useFilterStore();
 
@@ -212,7 +203,7 @@ export const NavMain = ({ items = [] }: { items?: NavItem[] }) => {
     return (
         <div className="flex flex-col w-full mt-6">
             <div className="w-full space-y-1">
-                {defaultItems.map((item) => (
+                {items.map((item) => (
                     <div key={item.title} className="w-full">
                         <RecursiveMenuItem
                             item={item}
