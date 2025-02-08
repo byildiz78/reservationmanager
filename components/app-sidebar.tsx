@@ -82,7 +82,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 name: "robotPOS Enterprise",
                 href: `${process.env.PROJECT_BASE_URL || ''}/franchisemanager/${tenantId}`,
                 logo: `${process.env.NEXT_PUBLIC_BASEPATH || ''}/images/Audit.png`,
-                plan: "Franchise Manager",
+                plan: "rezervation Manager",
                 className: "bg-blue-200",
             },
             {
@@ -103,7 +103,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
             // {
             //     name: "robotPOS Enterprise",
             //     logo: `${process.env.NEXT_PUBLIC_BASEPATH || ''}/images/Franchise.png`,
-            //     plan: "Franchise Manager",
+            //     plan: "rezervation Manager",
             //     className: "bg-blue-200",
             // },
         ],

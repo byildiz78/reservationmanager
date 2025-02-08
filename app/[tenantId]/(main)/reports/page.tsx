@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useParams } from "next/navigation";
-import axios from "@/lib/axios"
+import axios from "@/lib/axios";
+import { DashboardCharts } from "./components/DashboardCharts";
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -65,28 +66,8 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        <TabsContent value="overview" className="flex-1 p-6 mt-0">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Card 
-              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setActiveTab("calendar")}
-            >
-              <h3 className="font-medium mb-2">Doluluk Raporu</h3>
-              <p className="text-sm text-muted-foreground">
-                Günlük, haftalık ve aylık doluluk oranları
-              </p>
-            </Card>
-            
-            <Card 
-              className="p-4 cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => setActiveTab("calendar")}
-            >
-              <h3 className="font-medium mb-2">Rezervasyon Raporu</h3>
-              <p className="text-sm text-muted-foreground">
-                Rezervasyon istatistikleri ve analizi
-              </p>
-            </Card>
-          </div>
+        <TabsContent value="overview" className="space-y-4">
+          <DashboardCharts />
         </TabsContent>
 
         <TabsContent value="calendar" className="flex-1 p-6 mt-0">

@@ -34,7 +34,7 @@ export default function Dashboard() {
     const { settings } = useSettingsStore();
     const { selectedFilter } = useFilterStore();
     const [stats, setStats] = useState<StatCard[]>([]);
-    const { fetchReservations, fetchTables, reservations } = useReservationStore();
+    const { fetchReservations, fetchTables, reservations, isLoading } = useReservationStore();
 
     // API'den gelen verileri işleyerek istatistikleri hesapla
     const calculateStats = () => {
@@ -185,6 +185,14 @@ export default function Dashboard() {
         calculateStats();
     }, [reservations]);
 
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-full">
+                <div className="text-lg font-medium text-foreground">Yükleniyor...</div>
+            </div>
+        );
+    }
+
     return (
         <div className="h-full flex">
             <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-transparent 
@@ -287,7 +295,7 @@ export default function Dashboard() {
                         <Card className="overflow-hidden border-0 shadow-lg shadow-blue-500/5">
                             <CardContent className="p-0">
                                 <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50/50 dark:from-blue-950/50 dark:to-indigo-950/20">
-                                    <ReservationCalendar />
+                                    <ReservationCalendar isLoading={isLoading} />
                                 </div>
                             </CardContent>
                         </Card>
@@ -307,6 +315,7 @@ export default function Dashboard() {
                     <NotificationPanel
                         settings={settings}
                         refreshTrigger={refreshTrigger}
+                        isLoading={isLoading}
                     />
                 </div>
             </div>
@@ -328,6 +337,7 @@ export default function Dashboard() {
                         <NotificationPanel
                             settings={settings}
                             refreshTrigger={refreshTrigger}
+                            isLoading={isLoading}
                         />
                     </SheetContent>
                 </Sheet>

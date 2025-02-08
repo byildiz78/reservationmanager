@@ -2,19 +2,8 @@ import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface Position {
-    x: number;
-    y: number;
-}
-
-interface Size {
-    width: number;
-    height: number;
-}
 
 interface TableFormData {
     table_name: string;
@@ -22,12 +11,11 @@ interface TableFormData {
     section_id: string;
     category_id: string;
     status: "available" | "reserved" | "occupied";
-    shape: "rectangle" | "circle";
-    position: Position;
-    size: Size;
-    min_capacity: number;
-    max_capacity: number;
-    reservation_status: "available" | "reserved" | "occupied";
+    location: string;
+    min_reservation_time: number;
+    max_reservation_time: number;
+    reservation_interval: number;
+    is_active: boolean;
 }
 
 interface TableFormProps {
@@ -40,11 +28,11 @@ interface TableFormProps {
         category_id: number;
         category_name: string;
     }>;
-    onSubmit: (e: React.FormEvent) => void;
-    onChange: (formData: TableFormData) => void;
-    loading: boolean;
-    title: string;
+    onSubmit: () => void;
     onCancel: () => void;
+    onChange: (data: TableFormData) => void;
+    title: string;
+    loading?: boolean;
 }
 
 export const TableForm: React.FC<TableFormProps> = ({
@@ -52,10 +40,10 @@ export const TableForm: React.FC<TableFormProps> = ({
     sections,
     categories,
     onSubmit,
+    onCancel,
     onChange,
-    loading,
     title,
-    onCancel
+    loading = false
 }) => {
     const handleChange = (field: keyof TableFormData, value: any) => {
         onChange({
@@ -72,7 +60,10 @@ export const TableForm: React.FC<TableFormProps> = ({
                 </div>
 
                 <ScrollArea className="flex-1 p-6">
-                    <form id="table-form" onSubmit={onSubmit} className="space-y-4">
+                    <form onSubmit={(e) => {
+                        e.preventDefault();
+                        onSubmit();
+                    }} className="space-y-4">
                         <div>
                             <Label htmlFor="table_name">Masa Adı</Label>
                             <Input
@@ -134,94 +125,6 @@ export const TableForm: React.FC<TableFormProps> = ({
                         </div>
 
                         <div>
-                            <Label htmlFor="shape">Şekil</Label>
-                            <Select
-                                value={formData.shape}
-                                onValueChange={(value) => handleChange('shape', value)}
-                            >
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Şekil seçin" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="rectangle">Dikdörtgen</SelectItem>
-                                    <SelectItem value="circle">Daire</SelectItem>
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <Label>Konum</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <Label htmlFor="position_x">X</Label>
-                                    <Input
-                                        id="position_x"
-                                        type="number"
-                                        value={formData.position.x}
-                                        onChange={(e) => handleChange('position', { ...formData.position, x: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="position_y">Y</Label>
-                                    <Input
-                                        id="position_y"
-                                        type="number"
-                                        value={formData.position.y}
-                                        onChange={(e) => handleChange('position', { ...formData.position, y: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label>Boyut</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <Label htmlFor="size_width">Genişlik</Label>
-                                    <Input
-                                        id="size_width"
-                                        type="number"
-                                        value={formData.size.width}
-                                        onChange={(e) => handleChange('size', { ...formData.size, width: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="size_height">Yükseklik</Label>
-                                    <Input
-                                        id="size_height"
-                                        type="number"
-                                        value={formData.size.height}
-                                        onChange={(e) => handleChange('size', { ...formData.size, height: parseInt(e.target.value) })}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label>Kapasite Aralığı</Label>
-                            <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                    <Label htmlFor="min_capacity">Min Kapasite</Label>
-                                    <Input
-                                        id="min_capacity"
-                                        type="number"
-                                        value={formData.min_capacity}
-                                        onChange={(e) => handleChange('min_capacity', parseInt(e.target.value))}
-                                    />
-                                </div>
-                                <div>
-                                    <Label htmlFor="max_capacity">Max Kapasite</Label>
-                                    <Input
-                                        id="max_capacity"
-                                        type="number"
-                                        value={formData.max_capacity}
-                                        onChange={(e) => handleChange('max_capacity', parseInt(e.target.value))}
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
                             <Label htmlFor="status">Durum</Label>
                             <Select
                                 value={formData.status}
@@ -236,6 +139,63 @@ export const TableForm: React.FC<TableFormProps> = ({
                                     <SelectItem value="occupied">Dolu</SelectItem>
                                 </SelectContent>
                             </Select>
+                        </div>
+
+                        <div>
+                            <Label htmlFor="location">Konum</Label>
+                            <Input
+                                id="location"
+                                value={formData.location}
+                                onChange={(e) => handleChange('location', e.target.value)}
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="min_reservation_time">Min. Rezervasyon Süresi (dk)</Label>
+                            <Input
+                                id="min_reservation_time"
+                                type="number"
+                                value={formData.min_reservation_time}
+                                onChange={(e) => handleChange('min_reservation_time', parseInt(e.target.value))}
+                                min={15}
+                                step={15}
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="max_reservation_time">Max. Rezervasyon Süresi (dk)</Label>
+                            <Input
+                                id="max_reservation_time"
+                                type="number"
+                                value={formData.max_reservation_time}
+                                onChange={(e) => handleChange('max_reservation_time', parseInt(e.target.value))}
+                                min={30}
+                                step={15}
+                            />
+                        </div>
+
+                        <div>
+                            <Label htmlFor="reservation_interval">Rezervasyon Aralığı (dk)</Label>
+                            <Input
+                                id="reservation_interval"
+                                type="number"
+                                value={formData.reservation_interval}
+                                onChange={(e) => handleChange('reservation_interval', parseInt(e.target.value))}
+                                min={15}
+                                step={15}
+                            />
+                        </div>
+
+                        <div>
+                            <Label> Aktif/Pasif</Label>
+                            <div className="flex items-center">
+                                <Input
+                                    type="checkbox"
+                                    checked={formData.is_active}
+                                    onChange={(e) => handleChange('is_active', e.target.checked)}
+                                />
+                                <span className="ml-2">Aktif</span>
+                            </div>
                         </div>
                     </form>
                 </ScrollArea>
