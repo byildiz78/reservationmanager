@@ -14,6 +14,7 @@ import { motion } from "framer-motion";
 import NotificationPanel from "@/app/[tenantId]/(main)/dashboard/components/NotificationPanel";
 import { ReservationCalendar } from "../reports/components/ReservationCalendar";
 import cn from "classnames";
+import { format } from "date-fns";
 
 const REFRESH_INTERVAL = 90000; // 90 seconds in milliseconds
 
@@ -33,7 +34,116 @@ export default function Dashboard() {
     const { settings } = useSettingsStore();
     const { selectedFilter } = useFilterStore();
     const [stats, setStats] = useState<StatCard[]>([]);
-    const { fetchReservations, fetchTables } = useReservationStore();
+    const { fetchReservations, fetchTables, reservations } = useReservationStore();
+
+    // API'den gelen verileri işleyerek istatistikleri hesapla
+    const calculateStats = () => {
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfWeek = new Date(now);
+        startOfWeek.setDate(now.getDate() - now.getDay() + 1); // Pazartesi
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+        // Bugünün rezervasyonları
+        const todayReservations = reservations.filter(r => {
+            const reservationDate = new Date(r.reservationDate);
+            return format(reservationDate, 'yyyy-MM-dd') === format(startOfToday, 'yyyy-MM-dd');
+        });
+
+        // Bu haftanın rezervasyonları
+        const weekReservations = reservations.filter(r => {
+            const reservationDate = new Date(r.reservationDate);
+            return reservationDate >= startOfWeek && reservationDate < now;
+        });
+
+        // Bu ayın rezervasyonları
+        const monthReservations = reservations.filter(r => {
+            const reservationDate = new Date(r.reservationDate);
+            return reservationDate >= startOfMonth && reservationDate < now;
+        });
+
+        // Onaylanan rezervasyonlar (confirmed veya payment_received veya customer_arrived)
+        const confirmedReservations = monthReservations.filter(r => 
+            r.status === 'confirmed' || 
+            r.status === 'payment_received' || 
+            r.status === 'customer_arrived'
+        );
+
+        // İptal olan veya gelmeyen rezervasyonlar (customer_cancelled veya customer_no_show)
+        const cancelledReservations = monthReservations.filter(r => 
+            r.status === 'customer_cancelled' || 
+            r.status === 'customer_no_show'
+        );
+
+        // Bekleyen rezervasyonlar (pending veya awaiting_payment)
+        const pendingReservations = monthReservations.filter(r => 
+            r.status === 'pending' || 
+            r.status === 'awaiting_payment'
+        );
+
+        // Toplam kişi sayıları
+        const todayGuestCount = todayReservations.reduce((sum, r) => sum + r.guestCount, 0);
+        const weekGuestCount = weekReservations.reduce((sum, r) => sum + r.guestCount, 0);
+        const monthGuestCount = monthReservations.reduce((sum, r) => sum + r.guestCount, 0);
+        const cancelledGuestCount = cancelledReservations.reduce((sum, r) => sum + r.guestCount, 0);
+
+        // Ortalama kişi sayısı
+        const averageGuestCount = monthReservations.length > 0 
+            ? (monthGuestCount / monthReservations.length).toFixed(1)
+            : "0";
+
+        // Onay oranı (onaylananlar / (toplam - bekleyenler))
+        const confirmationRate = monthReservations.length - pendingReservations.length > 0
+            ? Math.round((confirmedReservations.length / (monthReservations.length - pendingReservations.length)) * 100)
+            : 0;
+
+        const newStats: StatCard[] = [
+            {
+                title: "Bugünkü Rezervasyonlar",
+                value: todayReservations.length.toString(),
+                description: `${todayGuestCount} Kişi`,
+                icon: <Calendar className="h-4 w-4 text-blue-600" />,
+                trend: 0
+            },
+            {
+                title: "Bu Hafta",
+                value: weekReservations.length.toString(),
+                description: `${weekGuestCount} Kişi`,
+                icon: <Users className="h-4 w-4 text-green-600" />,
+                trend: 0
+            },
+            {
+                title: "Bu Ay",
+                value: monthReservations.length.toString(),
+                description: `${monthGuestCount} Kişi`,
+                icon: <TrendingUp className="h-4 w-4 text-purple-600" />,
+                trend: 0
+            },
+            {
+                title: "Onaylanan Rezervasyonlar",
+                value: `${confirmationRate}%`,
+                description: `${confirmedReservations.length}/${monthReservations.length - pendingReservations.length} Rezervasyon`,
+                icon: <CalendarCheck className="h-4 w-4 text-emerald-600" />,
+                trend: 0
+            },
+            {
+                title: "İptal/Gelmeyen",
+                value: cancelledReservations.length.toString(),
+                description: `${cancelledGuestCount} Kişi`,
+                icon: <CalendarX className="h-4 w-4 text-red-600" />,
+                trend: 0
+            },
+            {
+                title: "Ortalama Kişi Sayısı",
+                value: averageGuestCount,
+                description: "Rezervasyon Başına",
+                icon: <UserCheck className="h-4 w-4 text-orange-600" />,
+                trend: 0
+            }
+        ];
+
+        setStats(newStats);
+    };
 
     useEffect(() => {
         if (selectedFilter.branches) {
@@ -58,56 +168,6 @@ export default function Dashboard() {
     }, [activeTab]);
 
     useEffect(() => {
-        // Mock veriler
-        const mockStats: StatCard[] = [
-            {
-                title: "Bugünkü Rezervasyonlar",
-                value: "24",
-                description: "85 Kişi",
-                icon: <Calendar className="h-4 w-4 text-blue-600" />,
-                trend: 12
-            },
-            {
-                title: "Bu Hafta",
-                value: "156",
-                description: "542 Kişi",
-                icon: <Users className="h-4 w-4 text-green-600" />,
-                trend: 8
-            },
-            {
-                title: "Bu Ay",
-                value: "687",
-                description: "2,345 Kişi",
-                icon: <TrendingUp className="h-4 w-4 text-purple-600" />,
-                trend: 15
-            },
-            {
-                title: "Onaylanan Rezervasyonlar",
-                value: "89%",
-                description: "612/687 Rezervasyon",
-                icon: <CalendarCheck className="h-4 w-4 text-emerald-600" />,
-                trend: 5
-            },
-            {
-                title: "İptal/Gelmeyen",
-                value: "75",
-                description: "243 Kişi",
-                icon: <CalendarX className="h-4 w-4 text-red-600" />,
-                trend: -3
-            },
-            {
-                title: "Ortalama Kişi Sayısı",
-                value: "3.4",
-                description: "Rezervasyon Başına",
-                icon: <UserCheck className="h-4 w-4 text-orange-600" />,
-                trend: 2
-            }
-        ];
-
-        setStats(mockStats);
-    }, []);
-
-    useEffect(() => {
         if (selectedBranches.length > 0) {
             fetchReservations(selectedBranches);
             fetchTables(selectedBranches);
@@ -120,6 +180,10 @@ export default function Dashboard() {
             fetchTables(selectedBranches);
         }
     }, [refreshTrigger, selectedBranches, fetchReservations, fetchTables]);
+
+    useEffect(() => {
+        calculateStats();
+    }, [reservations]);
 
     return (
         <div className="h-full flex">
