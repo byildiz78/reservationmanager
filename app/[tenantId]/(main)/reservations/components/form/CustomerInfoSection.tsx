@@ -12,6 +12,19 @@ interface CustomerInfoSectionProps {
 }
 
 export function CustomerInfoSection({ formData, onFieldChange }: CustomerInfoSectionProps) {
+  const handlePhoneChange = (value: string) => {
+    // Sadece rakamları al
+    const numericValue = value.replace(/\D/g, '');
+    // 5 ile başlamasını kontrol et
+    if (numericValue.length > 0 && numericValue[0] !== '5') {
+      return;
+    }
+    // Maksimum 10 rakam
+    if (numericValue.length <= 10) {
+      onFieldChange('phone', numericValue);
+    }
+  };
+
   return (
     <div className="grid gap-6">
       <div className="grid md:grid-cols-2 gap-6">
@@ -28,17 +41,33 @@ export function CustomerInfoSection({ formData, onFieldChange }: CustomerInfoSec
           />
         </div>
 
-        <div className="grid gap-3">
-          <Label htmlFor="phone" className="flex items-center gap-2 text-base">
-            <Phone className="w-4 h-4 text-primary" />
-            Telefon
-          </Label>
-          <Input
-            id="phone"
-            value={formData.phone}
-            onChange={(e) => onFieldChange("phone", e.target.value)}
-            className="h-11 bg-muted/50 text-base"
-          />
+        <div className="flex gap-2">
+          <div className="w-24">
+            <Label htmlFor="phoneCode" className="flex items-center gap-2 text-base">
+              <Phone className="w-4 h-4 text-primary" />
+              Kod
+            </Label>
+            <Input
+              id="phoneCode"
+              value="+90"
+              disabled
+              className="h-11 bg-muted"
+            />
+          </div>
+          <div className="flex-1">
+            <Label htmlFor="phone" className="flex items-center gap-2 text-base">
+              <Phone className="w-4 h-4 text-primary" />
+              Telefon Numarası
+            </Label>
+            <Input
+              id="phone"
+              value={formData.phone}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              className="h-11 bg-muted/50 text-base"
+              placeholder="5XX XXX XX XX"
+              maxLength={10}
+            />
+          </div>
         </div>
       </div>
 

@@ -68,6 +68,7 @@ interface LocationStats {
       reservations: any[];
     };
   };
+  reservations: any[];
 }
 
 interface ViewProps {
@@ -136,23 +137,90 @@ const CustomToolbar = (toolbar: any) => {
   );
 };
 
-const DailyView = ({ date, locationStats }: { date: Date; locationStats: LocationStats[] }) => {
-  // Saat aralığını 11:00'dan 24:00'a kadar ayarla
-  const hours = Array.from({ length: 14 }, (_, i) => {
-    const hour = i + 11;
-    return `${hour.toString().padStart(2, "0")}:00`;
+const calculateLocationStats = (targetDate: Date, reservations: any[], tables: any[]) => {
+  // Debug logs
+  console.log('Calculating stats for date:', targetDate);
+  console.log('All reservations:', reservations);
+  console.log('All tables:', tables);
+
+  // Tarihe göre rezervasyonları filtrele
+  const dateStr = format(targetDate, 'yyyy-MM-dd');
+  console.log('Looking for date:', dateStr);
+
+  const todaysReservations = reservations.filter(r => {
+    // Convert UTC date to local date for comparison
+    const reservationDate = new Date(r.reservationDate);
+    // Since reservationDate is already in UTC, we just need to format it in local time
+    const reservationDateStr = format(reservationDate, 'yyyy-MM-dd');
+    console.log('Comparing reservation date:', reservationDateStr, 'with target:', dateStr, 'reservation:', r.customerName);
+    return reservationDateStr === dateStr;
   });
 
-  const getTimeSlotOccupancy = (location: LocationStats, time: string) => {
-    const slot = location.timeSlots[time] || { count: 0, reservations: [] };
-    // Her saat dilimi için doluluk oranını hesapla
-    const maxCapacityPerHour = location.totalCapacity;
-    const occupancyRate = (slot.count / maxCapacityPerHour) * 100;
-    return {
-      ...slot,
-      occupancyRate
-    };
-  };
+  console.log('Filtered reservations:', todaysReservations);
+
+  // Konum istatistiklerini hesapla
+  const stats = tables.reduce((acc, table) => {
+    const location = table.section_id;
+    if (!acc[location]) {
+      acc[location] = {
+        name: table.section_name || location,
+        reservationCount: 0,
+        totalCapacity: tables
+          .filter(t => t.section_id === location)
+          .reduce((sum, t) => sum + Number(t.table_capacity || 0), 0),
+        occupancyRate: 0,
+        timeSlots: {},
+        reservations: [] // Rezervasyonlar dizisini ekle
+      };
+    }
+    return acc;
+  }, {} as Record<string, LocationStats>);
+
+  // Rezervasyonları işle
+  todaysReservations.forEach(reservation => {
+    // Convert tableId to string for comparison
+    const table = tables.find(t => Number(t.table_id) === reservation.tableId);
+    console.log('Processing reservation:', reservation.customerName, 'tableId:', reservation.tableId, 'found table:', table);
+    
+    if (table) {
+      const location = stats[table.section_id];
+      if (location) {
+        location.reservationCount += reservation.guestCount;
+        location.reservations.push(reservation); // Rezervasyonu diziye ekle
+
+        // Parse reservation time directly from reservationTime field
+        const timeKey = reservation.reservationTime.substring(0, 2) + ':00';
+        console.log('Adding reservation to time slot:', timeKey, 'customer:', reservation.customerName);
+
+        if (!location.timeSlots[timeKey]) {
+          location.timeSlots[timeKey] = {
+            count: 0,
+            reservations: []
+          };
+        }
+        location.timeSlots[timeKey].count += reservation.guestCount;
+        location.timeSlots[timeKey].reservations.push({
+          ...reservation,
+          table
+        });
+      }
+    }
+  });
+
+  // Doluluk oranlarını hesapla
+  Object.values(stats).forEach(stat => {
+    stat.occupancyRate = stat.totalCapacity > 0 ? (stat.reservationCount / stat.totalCapacity) * 100 : 0;
+  });
+
+  console.log('Final stats:', stats);
+  return Object.values(stats);
+};
+
+const DailyView = ({ date, locationStats }: { date: Date; locationStats: LocationStats[] }) => {
+  const timeSlots = Array.from({ length: 14 }, (_, i) => {
+    const hour = i + 11; // 11:00'dan başla
+    return `${hour}:00`;
+  });
 
   return (
     <div className="flex flex-col h-full border rounded-lg overflow-hidden">
@@ -161,21 +229,19 @@ const DailyView = ({ date, locationStats }: { date: Date; locationStats: Locatio
         <div className="grid" style={{ gridTemplateColumns: `repeat(${locationStats.length}, 1fr)` }}>
           {locationStats.map((location, i) => (
             <div 
-              key={i} 
-              className={cn(
-                "p-3 font-medium text-sm border-r last:border-r-0",
-                "bg-white"
-              )}
+              key={i}
+              className="p-2 font-medium text-sm border-r last:border-r-0 text-center"
             >
-              <div className="text-center">
-                <div className="font-semibold mb-1">{location.name}</div>
-                <div className="text-2xl font-bold text-primary">
-                  {location.reservationCount}
-                  <span className="text-sm font-normal text-muted-foreground ml-1">/ {location.totalCapacity}</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-1">Toplam Kişi</div>
+              <div className="font-semibold">{location.name}</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {location.reservationCount} / {location.totalCapacity}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Toplam Kişi
+              </div>
+              <div className="mt-1">
                 <OccupancyBar value={location.occupancyRate} />
-                <div className="text-xs font-medium mt-1">
+                <div className="text-[10px] text-muted-foreground mt-0.5">
                   %{Math.round(location.occupancyRate)} Doluluk
                 </div>
               </div>
@@ -186,49 +252,38 @@ const DailyView = ({ date, locationStats }: { date: Date; locationStats: Locatio
       
       <div className="flex-1 overflow-auto">
         <div className="grid grid-cols-[100px_1fr]">
-          {hours.map(time => (
-            <div key={time} className="contents group">
-              <div className="p-2 text-sm border-b border-r bg-muted/10 font-medium sticky left-0">
+          {timeSlots.map((time, i) => (
+            <div key={i} className="contents">
+              <div className="p-2 text-sm border-b border-r bg-white sticky left-0">
                 {time}
               </div>
               <div 
                 className="grid border-b" 
                 style={{ gridTemplateColumns: `repeat(${locationStats.length}, 1fr)` }}
               >
-                {locationStats.map((location, i) => {
-                  const slotInfo = getTimeSlotOccupancy(location, time);
-                  
+                {locationStats.map((location, j) => {
+                  const timeSlot = location.timeSlots[time];
                   return (
                     <div 
-                      key={i} 
+                      key={j}
                       className={cn(
-                        "relative p-2 text-xs border-r last:border-r-0 transition-colors",
+                        "relative p-2 text-xs border-r border-b last:border-r-0",
                         "hover:bg-muted/5"
                       )}
                     >
-                      {slotInfo.count > 0 && (
+                      {timeSlot && (
                         <>
                           <div 
                             className={cn(
                               "absolute inset-0 opacity-15 transition-opacity",
-                              getProgressColor(slotInfo.occupancyRate)
+                              getProgressColor(timeSlot.count / location.totalCapacity * 100)
                             )} 
                           />
-                          <div className="relative flex items-center justify-between gap-2">
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-[10px] whitespace-nowrap",
-                                getOccupancyColor(slotInfo.occupancyRate)
-                              )}
-                            >
-                              %{Math.round(slotInfo.occupancyRate)}
-                            </Badge>
-                            <span className="text-[10px] font-medium whitespace-nowrap">
-                              {slotInfo.count} Kişi
-                            </span>
+                          <div className="relative">
+                            <div className="font-medium text-center">
+                              {timeSlot.reservations.length} Rez. ({timeSlot.count} Kişi)
+                            </div>
                           </div>
-                          <OccupancyBar value={slotInfo.occupancyRate} />
                         </>
                       )}
                     </div>
@@ -253,6 +308,11 @@ const WeeklyView = ({ date, locationStats, reservations, tables }: ViewProps) =>
     };
   });
 
+  const weeklyStats = weekDays.map(day => ({
+    date: day.date,
+    stats: calculateLocationStats(day.date, reservations, tables)
+  }));
+
   return (
     <div className="flex flex-col h-full border rounded-lg overflow-hidden">
       <div className="grid grid-cols-[150px_1fr] border-b bg-muted/50">
@@ -260,7 +320,7 @@ const WeeklyView = ({ date, locationStats, reservations, tables }: ViewProps) =>
         <div className="grid grid-cols-7">
           {weekDays.map((day, i) => (
             <div 
-              key={i} 
+              key={i}
               className="p-3 font-medium text-sm border-r last:border-r-0 text-center"
             >
               <div className="font-semibold">{day.label}</div>
@@ -283,17 +343,13 @@ const WeeklyView = ({ date, locationStats, reservations, tables }: ViewProps) =>
                 </div>
               </div>
               <div className="grid grid-cols-7 border-b">
-                {weekDays.map((day, j) => {
-                  const dayStats = reservations
-                    .filter(r => r.date === day.dayStr)
-                    .filter(r => {
-                      const table = tables.find(t => t.id === r.tableId);
-                      return table?.location === location.name;
-                    })
-                    .reduce((acc, r) => acc + r.persons, 0);
+                {weeklyStats.map(({ date: dayDate, stats }, j) => {
+                  const dayStat = stats.find(s => s.name === location.name) || {
+                    ...location,
+                    reservationCount: 0,
+                    occupancyRate: 0
+                  };
                   
-                  const occupancyRate = (dayStats / location.totalCapacity) * 100;
-
                   return (
                     <div 
                       key={j}
@@ -302,29 +358,20 @@ const WeeklyView = ({ date, locationStats, reservations, tables }: ViewProps) =>
                         "hover:bg-muted/5"
                       )}
                     >
-                      {dayStats > 0 && (
+                      {dayStat.reservationCount > 0 && (
                         <>
                           <div 
                             className={cn(
                               "absolute inset-0 opacity-15 transition-opacity",
-                              getProgressColor(occupancyRate)
+                              getProgressColor(dayStat.occupancyRate)
                             )} 
                           />
-                          <div className="relative flex items-center justify-between gap-2">
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-[10px] whitespace-nowrap",
-                                getOccupancyColor(occupancyRate)
-                              )}
-                            >
-                              %{Math.round(occupancyRate)}
-                            </Badge>
-                            <span className="text-[10px] font-medium whitespace-nowrap">
-                              {dayStats} Kişi
-                            </span>
+                          <div className="relative flex items-center justify-center gap-2">
+                            <div className="text-[10px] font-medium text-center">
+                              {dayStat.reservations?.length || 0} Rez. ({dayStat.reservationCount} Kişi)
+                            </div>
                           </div>
-                          <OccupancyBar value={occupancyRate} />
+                          <OccupancyBar value={dayStat.occupancyRate} />
                         </>
                       )}
                     </div>
@@ -352,6 +399,12 @@ const MonthlyView = ({ date, locationStats, reservations, tables }: ViewProps) =
     });
   });
 
+  const monthlyStats = weeks.flat().map(day => ({
+    date: day.date,
+    isCurrentMonth: day.isCurrentMonth,
+    stats: calculateLocationStats(day.date, reservations, tables)
+  }));
+
   return (
     <div className="flex flex-col h-full border rounded-lg overflow-hidden">
       <div className="grid grid-cols-7 border-b bg-muted/50">
@@ -367,24 +420,8 @@ const MonthlyView = ({ date, locationStats, reservations, tables }: ViewProps) =
       
       <div className="flex-1 overflow-auto">
         <div className="grid grid-cols-7">
-          {weeks.flat().map((day, i) => {
-            const dayStats = locationStats.map(location => {
-              const reservationCount = reservations
-                .filter(r => r.date === day.dayStr)
-                .filter(r => {
-                  const table = tables.find(t => t.id === r.tableId);
-                  return table?.location === location.name;
-                })
-                .reduce((acc, r) => acc + r.persons, 0);
-              
-              return {
-                ...location,
-                reservationCount,
-                occupancyRate: (reservationCount / location.totalCapacity) * 100
-              };
-            });
-
-            const totalOccupancy = dayStats.reduce((acc, stat) => acc + stat.occupancyRate, 0) / dayStats.length;
+          {monthlyStats.map(({ date: dayDate, stats, isCurrentMonth }, i) => {
+            const totalOccupancy = stats.reduce((acc, stat) => acc + stat.occupancyRate, 0) / stats.length;
 
             return (
               <div 
@@ -392,36 +429,33 @@ const MonthlyView = ({ date, locationStats, reservations, tables }: ViewProps) =
                 className={cn(
                   "min-h-[120px] p-2 text-xs border-r border-b last:border-r-0",
                   "hover:bg-muted/5",
-                  !day.isCurrentMonth && "opacity-50"
+                  !isCurrentMonth && "opacity-50"
                 )}
               >
                 <div className="font-medium mb-2">
-                  {format(day.date, 'd', { locale: tr })}
+                  {format(dayDate, 'd', { locale: tr })}
                 </div>
-                {dayStats.some(stat => stat.reservationCount > 0) && (
-                  <div className="space-y-2">
-                    {dayStats.map((stat, j) => (
-                      stat.reservationCount > 0 && (
-                        <div key={j} className="space-y-1">
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] font-medium">{stat.name}</span>
-                            <Badge 
-                              variant="outline" 
-                              className={cn(
-                                "text-[10px]",
-                                getOccupancyColor(stat.occupancyRate)
-                              )}
-                            >
-                              {stat.reservationCount}
-                            </Badge>
+                {stats.some(stat => stat.reservationCount > 0) && (
+                  <div className="space-y-1 max-h-[100px] overflow-y-auto custom-scrollbar">
+                    {stats.map((stat, j) => (
+                      <div 
+                        key={j} 
+                        className={cn(
+                          "p-1 rounded",
+                          stat.reservationCount > 0 && "bg-muted/30"
+                        )}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[10px] font-medium truncate flex-1">{stat.name}</span>
+                          <div className="text-[10px] font-medium text-center whitespace-nowrap">
+                            {stat.reservations?.length || 0} Rez. ({stat.reservationCount} Kişi)
                           </div>
-                          <OccupancyBar value={stat.occupancyRate} />
                         </div>
-                      )
+                        {stat.reservationCount > 0 && (
+                          <OccupancyBar value={stat.occupancyRate} className="mt-1" />
+                        )}
+                      </div>
                     ))}
-                    <div className="pt-1 border-t">
-                      <OccupancyBar value={totalOccupancy} />
-                    </div>
                   </div>
                 )}
               </div>
@@ -433,68 +467,29 @@ const MonthlyView = ({ date, locationStats, reservations, tables }: ViewProps) =
   );
 };
 
+<style jsx global>{`
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+  }
+`}</style>
+
 export function ReservationCalendar() {
   const [view, setView] = useState(Views.DAY);
   const [date, setDate] = useState(new Date());
   const { reservations, tables } = useReservationStore();
 
-  const locationStats = useMemo(() => {
-    // Tarihe göre rezervasyonları filtrele
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const todaysReservations = reservations.filter(r => r.date === dateStr);
-
-    // Konum istatistiklerini hesapla
-    const stats = tables.reduce((acc, table) => {
-      const location = table.location;
-      if (!acc[location]) {
-        acc[location] = {
-          name: location,
-          reservationCount: 0,
-          totalCapacity: tables
-            .filter(t => t.location === location)
-            .reduce((sum, t) => sum + t.capacity, 0),
-          occupancyRate: 0,
-          timeSlots: {}
-        };
-      }
-      return acc;
-    }, {} as Record<string, LocationStats>);
-
-    // Rezervasyonları işle
-    todaysReservations.forEach(reservation => {
-      const table = tables.find(t => t.id === reservation.tableId);
-      if (table) {
-        const location = stats[table.location];
-        location.reservationCount += reservation.persons; // Toplam kişi sayısını ekle
-
-        // Saat formatını düzelt
-        const [time] = reservation.time.split(' - ');
-        const [hours] = time.split(':').map(Number);
-        if (isNaN(hours)) return;
-
-        const timeKey = `${hours.toString().padStart(2, '0')}:00`;
-
-        if (!location.timeSlots[timeKey]) {
-          location.timeSlots[timeKey] = {
-            count: 0,
-            reservations: []
-          };
-        }
-        location.timeSlots[timeKey].count += reservation.persons; // Kişi sayısını ekle
-        location.timeSlots[timeKey].reservations.push({
-          ...reservation,
-          table
-        });
-      }
-    });
-
-    // Doluluk oranlarını hesapla
-    Object.values(stats).forEach(stat => {
-      stat.occupancyRate = (stat.reservationCount / stat.totalCapacity) * 100;
-    });
-
-    return Object.values(stats);
-  }, [reservations, tables, date]);
+  const locationStats = useMemo(() => calculateLocationStats(date, reservations, tables), [date, reservations, tables]);
 
   if (view === Views.DAY) {
     return (

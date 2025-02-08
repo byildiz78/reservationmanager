@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast/use-toast";
 import api from '@/lib/axios';
-import { FormData, Table } from "./form/types";
+import { FormData, Table, Section } from "./form/types";
 import { DateTimeSection } from "./form/DateTimeSection";
 import { CustomerInfoSection } from "./form/CustomerInfoSection";
 import { TableLocationSection } from "./form/TableLocationSection";
@@ -35,8 +35,8 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
     time: format(new Date(), 'HH:mm'),
     persons: "2",
     tableId: "",
+    sectionId: "",
     type: "normal",
-    location: "salon",
     serviceType: "standart",
     notes: "",
     specialRequests: "",
@@ -46,23 +46,26 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState("Veriler yükleniyor...");
-  const [tableSections, setSections] = useState<Array<{section_id: number, section_name: string}>>([]);
+  const [sections, setSections] = useState<Section[]>([]);
   const [filteredTables, setFilteredTables] = useState<Table[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      setLoadingMessage("Masalar yükleniyor...");
+      setLoadingMessage("Masalar ve bölümler yükleniyor...");
       
       try {
-        const tablesResponse = await api.get('/api/postgres/list-tables');
+        const [tablesResponse, sectionsResponse] = await Promise.all([
+          api.get('/api/postgres/list-tables'),
+          api.get('/api/postgres/list-sections')
+        ]);
+
         if (tablesResponse.data.success) {
           setTables(tablesResponse.data.data);
+          setFilteredTables(tablesResponse.data.data);
         }
 
-        setLoadingMessage("Bölümler yükleniyor...");
-        const sectionsResponse = await api.get('/api/postgres/list-sections');
         if (sectionsResponse.data.success) {
           setSections(sectionsResponse.data.data);
         }
@@ -93,8 +96,8 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
         time: format(now, 'HH:mm'),
         persons: "2",
         tableId: "",
+        sectionId: "",
         type: "normal",
-        location: "salon",
         serviceType: "standart",
         notes: "",
         specialRequests: "",
@@ -121,8 +124,8 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
           time: timeStr,
           persons: String(initialData.party_size) || '2',
           tableId: String(initialData.table_id) || '',
+          sectionId: String(initialData.section_id) || '',
           type: 'normal' as const,
-          location: (initialData.section_name?.toLowerCase() || 'salon') as const,
           serviceType: 'standart' as const,
           notes: initialData.notes || '',
           specialRequests: initialData.specialnotes || '',
@@ -142,30 +145,17 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
   }, [initialData]);
 
   useEffect(() => {
-    if (tables.length > 0) {
-      const filtered = tables.filter(table => 
-        table.section_name.toLowerCase() === formData.location.toLowerCase()
+    if (formData.sectionId) {
+      const sectionTables = tables.filter(
+        table => table.section_id === parseInt(formData.sectionId)
       );
-      setFilteredTables(filtered);
-
-      if (formData.tableId && !filtered.find(t => String(t.table_id) === formData.tableId)) {
-        setFormData(prev => ({ ...prev, tableId: "" }));
-      }
+      setFilteredTables(sectionTables);
+    } else {
+      setFilteredTables(tables);
     }
-  }, [formData.location, tables]);
+  }, [formData.sectionId, tables]);
 
-  const handleTableChange = (tableId: string) => {
-    const selectedTable = tables.find(t => String(t.table_id) === tableId);
-    if (selectedTable) {
-      setFormData(prev => ({
-        ...prev,
-        tableId,
-        location: selectedTable.section_name.toLowerCase() as any
-      }));
-    }
-  };
-
-  const handleChange = (field: keyof FormData, value: FormData[keyof FormData]) => {
+  const handleFieldChange = (field: keyof FormData, value: FormData[keyof FormData]) => {
     setFormData(prevData => ({ ...prevData, [field]: value }));
   };
 
@@ -183,6 +173,7 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
         reservation_date: formattedDate,
         reservation_time: formData.time,
         table_id: parseInt(formData.tableId),
+        section_id: parseInt(formData.sectionId),
         notes: formData.notes || '',
         specialnotes: formData.specialRequests || '',
         status: formData.status,
@@ -224,98 +215,133 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-[85vw] h-[85vh] p-0 overflow-hidden bg-white dark:bg-gray-950">
+      <DialogContent className="max-w-[90vw] h-[90vh] p-0 overflow-hidden bg-gradient-to-br from-background via-background to-muted/10 dark:from-gray-950 dark:via-gray-950 dark:to-gray-900/50">
         <div className="flex flex-col h-full">
-          <DialogHeader className="p-6 border-b bg-gradient-to-r from-primary via-primary/50 to-background">
-            <DialogTitle className="text-2xl font-semibold text-white">
+          <DialogHeader className="px-6 py-4 border-b bg-gradient-to-r from-primary/90 to-primary/50">
+            <DialogTitle className="text-xl font-semibold text-white flex items-center gap-2">
+              <div className="p-1.5 rounded-lg bg-white/20">
+                {initialData ? 
+                  <ClipboardList className="w-5 h-5 text-white" /> : 
+                  <Calendar className="w-5 h-5 text-white" />
+                }
+              </div>
               {initialData ? "Rezervasyonu Düzenle" : "Yeni Rezervasyon"}
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex-1">
+          <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-lg text-muted-foreground">{loadingMessage}</p>
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-12 h-12 border-3 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  <p className="text-base text-muted-foreground animate-pulse">{loadingMessage}</p>
                 </div>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="p-4">
-                <div className="grid gap-4">
-                  {/* Müşteri ve Tarih Bilgileri */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400">
-                        <Users className="w-4 h-4" />
-                        <h3 className="text-base font-medium">Müşteri Bilgileri</h3>
+              <form onSubmit={handleSubmit} className="p-4 space-y-4">
+                {/* Üst Bölüm: Müşteri ve Tarih Bilgileri */}
+                <div className="grid lg:grid-cols-2 gap-4">
+                  {/* Müşteri Bilgileri */}
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-2 px-1 mb-2">
+                      <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-900/50">
+                        <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <div className="p-3 rounded-lg border-2 border-blue-100 dark:border-blue-900 bg-gradient-to-br from-blue-50 to-white dark:from-blue-950/50 dark:to-gray-900">
-                        <CustomerInfoSection formData={formData} onFieldChange={handleChange} />
-                      </div>
+                      <h3 className="text-sm font-medium text-blue-600 dark:text-blue-400">
+                        Müşteri Bilgileri
+                      </h3>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400">
-                        <Calendar className="w-4 h-4" />
-                        <h3 className="text-base font-medium">Tarih ve Saat</h3>
-                      </div>
-                      <div className="p-3 rounded-lg border-2 border-purple-100 dark:border-purple-900 bg-gradient-to-br from-purple-50 to-white dark:from-purple-950/50 dark:to-gray-900">
-                        <DateTimeSection formData={formData} onFieldChange={handleChange} />
-                      </div>
+                    <div className="flex-1 p-3 rounded-lg border border-blue-100/50 dark:border-blue-900/50 
+                      bg-white dark:bg-gray-900 shadow-sm">
+                      <CustomerInfoSection formData={formData} onFieldChange={handleFieldChange} />
                     </div>
                   </div>
 
-                  {/* Masa ve Rezervasyon Detayları */}
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
-                        <MapPin className="w-4 h-4" />
-                        <h3 className="text-base font-medium">Masa ve Konum</h3>
+                  {/* Tarih ve Saat */}
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-2 px-1 mb-2">
+                      <div className="p-1.5 rounded-md bg-purple-100 dark:bg-purple-900/50">
+                        <Calendar className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                       </div>
-                      <div className="p-3 rounded-lg border-2 border-amber-100 dark:border-amber-900 bg-gradient-to-br from-amber-50 to-white dark:from-amber-950/50 dark:to-gray-900">
-                        <TableLocationSection
-                          formData={formData}
-                          sections={tableSections}
-                          filteredTables={filteredTables}
-                          onTableChange={handleTableChange}
-                          onFieldChange={handleChange}
-                        />
-                      </div>
+                      <h3 className="text-sm font-medium text-purple-600 dark:text-purple-400">
+                        Tarih ve Saat
+                      </h3>
                     </div>
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                        <ClipboardList className="w-4 h-4" />
-                        <h3 className="text-base font-medium">Rezervasyon Detayları</h3>
+                    <div className="flex-1 p-3 rounded-lg border border-purple-100/50 dark:border-purple-900/50 
+                      bg-white dark:bg-gray-900 shadow-sm">
+                      <DateTimeSection formData={formData} onFieldChange={handleFieldChange} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Orta Bölüm: Masa ve Rezervasyon Detayları */}
+                <div className="grid lg:grid-cols-2 gap-4">
+                  {/* Masa ve Konum */}
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-2 px-1 mb-2">
+                      <div className="p-1.5 rounded-md bg-amber-100 dark:bg-amber-900/50">
+                        <MapPin className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                       </div>
-                      <div className="p-3 rounded-lg border-2 border-emerald-100 dark:border-emerald-900 bg-gradient-to-br from-emerald-50 to-white dark:from-emerald-950/50 dark:to-gray-900">
-                        <ReservationDetailsSection formData={formData} onFieldChange={handleChange} />
-                      </div>
+                      <h3 className="text-sm font-medium text-amber-600 dark:text-amber-400">
+                        Masa ve Konum
+                      </h3>
+                    </div>
+                    <div className="flex-1 p-3 rounded-lg border border-amber-100/50 dark:border-amber-900/50 
+                      bg-white dark:bg-gray-900 shadow-sm">
+                      <TableLocationSection
+                        formData={formData}
+                        sections={sections}
+                        filteredTables={filteredTables}
+                        onTableChange={(tableId) => handleFieldChange("tableId", tableId)}
+                        onFieldChange={handleFieldChange}
+                      />
                     </div>
                   </div>
 
-                  {/* Notlar */}
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-rose-600 dark:text-rose-400">
-                      <MessageSquare className="w-4 h-4" />
-                      <h3 className="text-base font-medium">Notlar ve Özel İstekler</h3>
+                  {/* Rezervasyon Detayları */}
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-2 px-1 mb-2">
+                      <div className="p-1.5 rounded-md bg-emerald-100 dark:bg-emerald-900/50">
+                        <ClipboardList className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      </div>
+                      <h3 className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                        Rezervasyon Detayları
+                      </h3>
                     </div>
-                    <div className="p-3 rounded-lg border-2 border-rose-100 dark:border-rose-900 bg-gradient-to-br from-rose-50 to-white dark:from-rose-950/50 dark:to-gray-900">
-                      <NotesSection formData={formData} onFieldChange={handleChange} />
+                    <div className="flex-1 p-3 rounded-lg border border-emerald-100/50 dark:border-emerald-900/50 
+                      bg-white dark:bg-gray-900 shadow-sm">
+                      <ReservationDetailsSection formData={formData} onFieldChange={handleFieldChange} />
                     </div>
+                  </div>
+                </div>
+
+                {/* Alt Bölüm: Notlar */}
+                <div className="flex flex-col">
+                  <div className="flex items-center gap-2 px-1 mb-2">
+                    <div className="p-1.5 rounded-md bg-rose-100 dark:bg-rose-900/50">
+                      <MessageSquare className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                    </div>
+                    <h3 className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                      Notlar ve Özel İstekler
+                    </h3>
+                  </div>
+                  <div className="p-3 rounded-lg border border-rose-100/50 dark:border-rose-900/50 
+                    bg-white dark:bg-gray-900 shadow-sm">
+                    <NotesSection formData={formData} onFieldChange={handleFieldChange} />
                   </div>
                 </div>
               </form>
             )}
           </div>
 
-          <div className="p-6 border-t bg-gradient-to-r from-muted/30 via-muted/20 to-background">
+          <div className="sticky bottom-0 px-6 py-4 border-t bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm">
             <div className="flex justify-end gap-3">
               <Button
                 type="button"
                 variant="outline"
                 onClick={onClose}
                 disabled={isSubmitting}
-                className="border-2"
+                className="min-w-[100px] bg-background hover:bg-muted/80"
               >
                 İptal
               </Button>
@@ -328,10 +354,10 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
                 {isSubmitting ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    {initialData?.id ? "Güncelleniyor..." : "Kaydediliyor..."}
+                    <span>{initialData?.id ? "Güncelleniyor..." : "Kaydediliyor..."}</span>
                   </div>
                 ) : (
-                  initialData?.id ? "Güncelle" : "Kaydet"
+                  <span>{initialData?.id ? "Güncelle" : "Kaydet"}</span>
                 )}
               </Button>
             </div>

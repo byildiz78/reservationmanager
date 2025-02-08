@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFilterStore } from "@/stores/filters-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useTabStore } from "@/stores/tab-store";
+import { useReservationStore } from "@/stores/reservation-store";
 import { Bell, Store } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
@@ -32,6 +33,7 @@ export default function Dashboard() {
     const { settings } = useSettingsStore();
     const { selectedFilter } = useFilterStore();
     const [stats, setStats] = useState<StatCard[]>([]);
+    const { fetchReservations, fetchTables } = useReservationStore();
 
     useEffect(() => {
         if (selectedFilter.branches) {
@@ -104,6 +106,20 @@ export default function Dashboard() {
 
         setStats(mockStats);
     }, []);
+
+    useEffect(() => {
+        if (selectedBranches.length > 0) {
+            fetchReservations(selectedBranches);
+            fetchTables(selectedBranches);
+        }
+    }, [selectedBranches, fetchReservations, fetchTables]);
+
+    useEffect(() => {
+        if (selectedBranches.length > 0) {
+            fetchReservations(selectedBranches);
+            fetchTables(selectedBranches);
+        }
+    }, [refreshTrigger, selectedBranches, fetchReservations, fetchTables]);
 
     return (
         <div className="h-full flex">

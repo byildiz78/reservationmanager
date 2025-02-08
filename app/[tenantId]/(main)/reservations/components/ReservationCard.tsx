@@ -203,15 +203,20 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
           damping: 15
         }}
         className={`relative rounded-2xl ${statusStyles.border} ${statusStyles.background} ${statusStyles.shadow} 
-          backdrop-blur-sm hover:shadow-lg hover:scale-[1.02] transition-all duration-300 mb-6`}
+          backdrop-blur-[20px] hover:shadow-lg transition-all duration-300 mb-6
+          border border-gray-100 dark:border-gray-700 overflow-hidden
+          before:content-[''] before:absolute before:inset-0 before:z-0 before:bg-gradient-to-br before:from-white/40 before:to-white/10 
+          before:dark:from-gray-800/40 before:dark:to-gray-800/10 before:pointer-events-none`}
       >
-        <div className="flex items-stretch">
+        <div className="flex items-stretch relative z-10">
           {/* Sol taraftaki saat bölümü */}
-          <div className="flex-shrink-0 w-28 bg-white/50 dark:bg-gray-800/50 rounded-l-2xl backdrop-blur-sm">
+          <div className="flex-shrink-0 w-28 bg-gradient-to-br from-white/80 to-white/40 dark:from-gray-800/80 dark:to-gray-800/40 rounded-l-2xl backdrop-blur-sm border-r border-gray-100 dark:border-gray-700">
             <div className="h-full flex flex-col items-center justify-center p-4">
-              <ClockIcon className="w-6 h-6 text-gray-400 mb-2" />
+              <div className="rounded-full bg-gradient-to-br from-gray-100 to-white dark:from-gray-700 dark:to-gray-800 p-3 mb-2">
+                <ClockIcon className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+              </div>
               <div className="text-center">
-                <span className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent">
+                <span className="text-xl font-bold bg-gradient-to-br from-gray-900 via-gray-700 to-gray-800 dark:from-white dark:via-gray-200 dark:to-gray-300 bg-clip-text text-transparent">
                   {formattedTime}
                 </span>
               </div>
@@ -219,20 +224,20 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
           </div>
 
           {/* Sağ taraftaki içerik bölümü */}
-          <div className="flex-1 p-6">
-            <div className="flex items-start justify-between mb-6">
+          <div className="flex-1 p-5">
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <h3 className="text-lg font-semibold bg-gradient-to-r from-gray-900 to-gray-600 dark:from-gray-100 dark:to-gray-400 bg-clip-text text-transparent mb-2">
+                <h3 className="text-lg font-bold bg-gradient-to-r from-gray-900 via-gray-700 to-gray-800 dark:from-white dark:via-gray-200 dark:to-gray-300 bg-clip-text text-transparent mb-2">
                   {reservation.customerName}
                 </h3>
                 <div className="space-y-1.5">
-                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
-                    <PhoneIcon className="w-4 h-4 mr-2" />
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                    <PhoneIcon className="w-4 h-4 mr-2 text-gray-500" />
                     {reservation.customerPhone}
                   </div>
                   {reservation.customerEmail && (
-                    <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors">
-                      <MailIcon className="w-4 h-4 mr-2" />
+                    <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+                      <MailIcon className="w-4 h-4 mr-2 text-gray-500" />
                       {reservation.customerEmail}
                     </div>
                   )}
@@ -242,15 +247,15 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
               <div className="flex items-start space-x-3">
                 <Badge 
                   className={cn(
-                    'border-0 px-3 py-1 text-xs font-medium rounded-full ring-2',
+                    'px-3 py-1.5 text-xs font-medium rounded-lg shadow-sm',
                     {
-                      'bg-green-100 text-green-800 ring-green-400/20': reservation.status === 'confirmed',
-                      'bg-yellow-100 text-yellow-800 ring-yellow-400/20': reservation.status === 'pending',
-                      'bg-blue-100 text-blue-800 ring-blue-400/20': reservation.status === 'awaiting_payment',
-                      'bg-purple-100 text-purple-800 ring-purple-400/20': reservation.status === 'payment_received',
-                      'bg-emerald-100 text-emerald-800 ring-emerald-400/20': reservation.status === 'customer_arrived',
-                      'bg-red-100 text-red-800 ring-red-400/20': reservation.status === 'customer_no_show',
-                      'bg-rose-100 text-rose-800 ring-rose-400/20': reservation.status === 'customer_cancelled',
+                      'bg-green-50 text-green-800 border border-green-100': reservation.status === 'confirmed',
+                      'bg-yellow-50 text-yellow-800 border border-yellow-100': reservation.status === 'pending',
+                      'bg-blue-50 text-blue-800 border border-blue-100': reservation.status === 'awaiting_payment',
+                      'bg-purple-50 text-purple-800 border border-purple-100': reservation.status === 'payment_received',
+                      'bg-emerald-50 text-emerald-800 border border-emerald-100': reservation.status === 'customer_arrived',
+                      'bg-red-50 text-red-800 border border-red-100': reservation.status === 'customer_no_show',
+                      'bg-rose-50 text-rose-800 border border-rose-100': reservation.status === 'customer_cancelled',
                     }
                   )}
                 >
@@ -259,61 +264,55 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
                 <ReservationActions 
                   reservationId={reservation.id}
                   onEdit={handleEdit}
-                  onUpdate={onUpdate}  // Pass onUpdate to ReservationActions
+                  onUpdate={onUpdate}
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors group">
-                <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg group-hover:scale-110 transition-transform">
-                  <CalendarIcon className="w-4 h-4 text-gray-500" />
-                </div>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                <CalendarIcon className="w-4 h-4 text-gray-500" />
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Tarih</div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{formattedDate}</div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{formattedDate}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors group">
-                <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg group-hover:scale-110 transition-transform">
-                  <UsersIcon className="w-4 h-4 text-gray-500" />
-                </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                <UsersIcon className="w-4 h-4 text-gray-500" />
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Kişi Sayısı</div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{reservation.guestCount} Kişi</div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{reservation.guestCount} Kişi</div>
                 </div>
               </div>
-              <div className="flex items-center gap-3 p-3 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors group">
-                <div className="p-2 bg-gray-50 dark:bg-gray-700 rounded-lg group-hover:scale-110 transition-transform">
-                  <TableIcon className="w-4 h-4 text-gray-500" />
-                </div>
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                <TableIcon className="w-4 h-4 text-gray-500" />
                 <div>
                   <div className="text-xs text-gray-500 dark:text-gray-400">Masa</div>
-                  <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{reservation.tableName}</div>
+                  <div className="text-sm font-medium text-gray-700 dark:text-gray-200">{reservation.tableName}</div>
                 </div>
               </div>
             </div>
 
             {(reservation.notes || reservation.specialnotes) && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {reservation.notes && (
-                  <div className="p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors">
-                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
-                      <NotebookIcon className="w-4 h-4 mr-2" />
+                  <div className="p-2 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 flex items-center">
+                      <NotebookIcon className="w-4 h-4 text-gray-500 mr-2" />
                       Notlar
                     </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line pl-6">
                       {reservation.notes}
                     </p>
                   </div>
                 )}
                 {reservation.specialnotes && (
-                  <div className="p-4 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm hover:bg-white/80 dark:hover:bg-gray-800/80 transition-colors">
-                    <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2 flex items-center">
-                      <StarIcon className="w-4 h-4 mr-2" />
+                  <div className="p-2 rounded-lg bg-white/50 dark:bg-gray-800/50">
+                    <h4 className="text-sm font-medium text-gray-700 dark:text-gray-200 mb-1 flex items-center">
+                      <StarIcon className="w-4 h-4 text-gray-500 mr-2" />
                       Özel İstekler
                     </h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line">
+                    <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-line pl-6">
                       {reservation.specialnotes}
                     </p>
                   </div>
@@ -322,7 +321,7 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
             )}
 
             {/* Countdown Timer */}
-            <div className="absolute bottom-6 right-6">
+            <div className="absolute bottom-5 right-5">
               <CountdownTimer 
                 reservationDate={reservation.reservationDate}
                 reservationTime={reservation.reservationTime}
@@ -331,22 +330,22 @@ export function ReservationCard({ reservation, index, onEdit, onUpdate }: Reserv
 
             {/* Özel Alan Etiketleri */}
             {(reservation.is_smoking || reservation.is_outdoor || reservation.is_vip) && (
-              <div className="absolute bottom-6 left-6 flex gap-2">
+              <div className="absolute bottom-5 left-5 flex gap-2">
                 {reservation.is_smoking && (
-                  <Badge className="bg-orange-100 text-orange-800 border-0 px-2.5 py-0.5 text-xs font-medium rounded-full ring-1 ring-orange-400/30 flex items-center gap-1 group transition-all duration-300 hover:ring-2">
-                    <Cigarette className="w-3 h-3 group-hover:scale-110 transition-transform" />
+                  <Badge className="bg-orange-50 text-orange-700 border border-orange-100 px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1">
+                    <Cigarette className="w-3 h-3" />
                     <span>Sigara</span>
                   </Badge>
                 )}
                 {reservation.is_outdoor && (
-                  <Badge className="bg-sky-100 text-sky-800 border-0 px-2.5 py-0.5 text-xs font-medium rounded-full ring-1 ring-sky-400/30 flex items-center gap-1 group transition-all duration-300 hover:ring-2">
-                    <Cloud className="w-3 h-3 group-hover:scale-110 transition-transform" />
+                  <Badge className="bg-sky-50 text-sky-700 border border-sky-100 px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1">
+                    <Cloud className="w-3 h-3" />
                     <span>Açık Alan</span>
                   </Badge>
                 )}
                 {reservation.is_vip && (
-                  <Badge className="bg-purple-100 text-purple-800 border-0 px-2.5 py-0.5 text-xs font-medium rounded-full ring-1 ring-purple-400/30 flex items-center gap-1 group transition-all duration-300 hover:ring-2">
-                    <Crown className="w-3 h-3 group-hover:scale-110 transition-transform" />
+                  <Badge className="bg-purple-50 text-purple-700 border border-purple-100 px-2 py-1 text-xs font-medium rounded-md flex items-center gap-1">
+                    <Crown className="w-3 h-3" />
                     <span>VIP</span>
                   </Badge>
                 )}

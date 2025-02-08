@@ -1,13 +1,14 @@
 "use client";
 
-import { MapPin, Filter } from "lucide-react";
+import { MapPin, Users } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FormData, Table } from "./types";
+import { Input } from "@/components/ui/input";
+import { FormData, Section, Table } from "./types";
 
 interface TableLocationSectionProps {
   formData: FormData;
-  sections: Array<{ section_id: number; section_name: string }>;
+  sections: Section[];
   filteredTables: Table[];
   onTableChange: (tableId: string) => void;
   onFieldChange: (field: keyof FormData, value: FormData[keyof FormData]) => void;
@@ -21,24 +22,24 @@ export function TableLocationSection({
   onFieldChange,
 }: TableLocationSectionProps) {
   return (
-    <div className="grid md:grid-cols-2 gap-6">
-      <div className="grid gap-3">
-        <Label className="flex items-center gap-2 text-base">
-          <MapPin className="w-5 h-5 text-primary" />
-          Konum
+    <div className="space-y-4">
+      <div>
+        <Label className="flex items-center gap-2 mb-2">
+          <MapPin className="w-4 h-4 text-primary" />
+          Bölüm
         </Label>
         <Select
-          value={formData.location}
-          onValueChange={(value) => onFieldChange("location", value)}
+          value={formData.sectionId}
+          onValueChange={(value) => onFieldChange("sectionId", value)}
         >
-          <SelectTrigger>
-            <SelectValue placeholder="Konum seçin" />
+          <SelectTrigger className="w-full h-11 bg-muted/50">
+            <SelectValue placeholder="Bölüm seçin" />
           </SelectTrigger>
           <SelectContent>
             {sections.map((section) => (
-              <SelectItem
-                key={section.section_id}
-                value={section.section_name.toLowerCase()}
+              <SelectItem 
+                key={section.section_id} 
+                value={String(section.section_id)}
               >
                 {section.section_name}
               </SelectItem>
@@ -47,27 +48,46 @@ export function TableLocationSection({
         </Select>
       </div>
 
-      <div className="grid gap-3">
-        <Label className="flex items-center gap-2 text-base">
-          <Filter className="w-5 h-5 text-primary" />
+      <div>
+        <Label className="flex items-center gap-2 mb-2">
+          <MapPin className="w-4 h-4 text-primary" />
           Masa
         </Label>
-        <Select value={formData.tableId} onValueChange={onTableChange}>
-          <SelectTrigger>
+        <Select
+          value={formData.tableId}
+          onValueChange={onTableChange}
+          disabled={!formData.sectionId}
+        >
+          <SelectTrigger className="w-full h-11 bg-muted/50">
             <SelectValue placeholder="Masa seçin" />
           </SelectTrigger>
           <SelectContent>
             {filteredTables.map((table) => (
-              <SelectItem
-                key={table.table_id}
+              <SelectItem 
+                key={table.table_id} 
                 value={String(table.table_id)}
-                className="pl-4"
               >
-                Masa {table.table_name} ({table.table_capacity} Kişilik)
+                {table.table_name} ({table.table_capacity} Kişilik)
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+      </div>
+
+      <div>
+        <Label className="flex items-center gap-2 mb-2">
+          <Users className="w-4 h-4 text-primary" />
+          Kişi Sayısı
+        </Label>
+        <Input
+          type="number"
+          value={formData.persons}
+          onChange={(e) =>
+            onFieldChange("persons", e.target.value)
+          }
+          min={1}
+          className="w-full h-11 bg-muted/50"
+        />
       </div>
     </div>
   );

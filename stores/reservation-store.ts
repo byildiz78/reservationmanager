@@ -47,6 +47,7 @@ interface ReservationStore {
   setSelectedDate: (date: Date) => void;
   fetchReservations: () => Promise<void>;
   fetchSections: () => Promise<void>;
+  fetchTables: () => Promise<void>;
   addReservation: (reservation: Omit<Reservation, 'id'>) => Promise<void>;
   updateReservation: (id: number, updates: Partial<Reservation>) => Promise<void>;
   deleteReservation: (id: number) => Promise<void>;
@@ -73,6 +74,21 @@ export const useReservationStore = create<ReservationStore>((set, get) => ({
     } catch (error) {
       console.error('Bölümler yüklenirken hata:', error);
       set({ error: error instanceof Error ? error.message : 'Bölümler yüklenirken bir hata oluştu' });
+    }
+  },
+
+  fetchTables: async () => {
+    try {
+      const response = await api.get(`/api/postgres/list-tables`);
+      console.log('Tables Response:', response.data);
+      if (response.data.success) {
+        set({ tables: response.data.data });
+      } else {
+        throw new Error(response.data.error);
+      }
+    } catch (error) {
+      console.error('Masalar yüklenirken hata:', error);
+      set({ error: error instanceof Error ? error.message : 'Masalar yüklenirken bir hata oluştu' });
     }
   },
 
