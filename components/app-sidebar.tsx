@@ -3,7 +3,6 @@
 import * as React from "react";
 import * as LucideIcons from "lucide-react";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from "@/components/ui/sidebar";
-import { TeamSwitcher } from "@/components/team-switcher";
 import { NavMain } from "@/components/nav-main";
 import { NavUser } from "@/components/nav-user";
 import { usePathname } from "next/navigation";
@@ -25,6 +24,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const pathname = usePathname();
     const tenantId = pathname?.split("/")[1] || "";
     const [userData, setUserData] = useState({ name: "", email: "" });
+
     const navItems = React.useMemo(() => {
         const items = [
             {
@@ -43,11 +43,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 title: "Rezervasyonlar",
                 icon: LucideIcons.Calendar,
                 isActive: true,
-                url: "/reservations",
+                expanded: true,
                 items: [
                     {
                         title: "Rezervasyon Listesi",
-                        url: "/reservations"
+                        url: "/reservations/list"
                     },
                     {
                         title: "Rezervasyon Takvimi",
@@ -64,6 +64,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ];
         return items;
     }, []);
+
     useEffect(() => {
         const storedUserData = localStorage.getItem(`userData_${tenantId}`);
         if (storedUserData) {
@@ -82,30 +83,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 name: "robotPOS Enterprise",
                 href: `${process.env.PROJECT_BASE_URL || ''}/franchisemanager/${tenantId}`,
                 logo: `${process.env.NEXT_PUBLIC_BASEPATH || ''}/images/Audit.png`,
-                plan: "rezervation Manager",
-                className: "bg-blue-200",
-            },
-            {
-                name: "robotPOS Enterprise",
-                href: "/[tenantId]/(main)/dashboard",
-                logo: `${process.env.NEXT_PUBLIC_BASEPATH || ''}/images/Data.png`,
-                plan: "Data Manager",
-                className: "bg-blue-200",
-            },
-            {
-                name: "robotPOS Enterprise",
-                href: `${process.env.PROJECT_BASE_URL || ''}/operationmanager/${tenantId}`,
-                logo: `${process.env.NEXT_PUBLIC_BASEPATH || ''}/images/Audit.png`,
-                plan: "Operation Manager",
+                plan: "Reservation Manager",
                 className: "bg-blue-200",
             }
-           
-            // {
-            //     name: "robotPOS Enterprise",
-            //     logo: `${process.env.NEXT_PUBLIC_BASEPATH || ''}/images/Franchise.png`,
-            //     plan: "rezervation Manager",
-            //     className: "bg-blue-200",
-            // },
         ],
         projects: [],
     }), [userData]);
@@ -113,14 +93,26 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     return (
         <Sidebar {...props}>
             <SidebarHeader>
-                <TeamSwitcher teams={baseData.teams} />
+                <div className="flex flex-col space-y-2 px-4 py-2">
+                    <div className="flex items-center gap-2">
+                        <img 
+                            src={baseData.teams[0].logo} 
+                            alt="Logo" 
+                            className="h-6 w-6"
+                        />
+                        <div className="flex flex-col">
+                            <span className="text-sm font-semibold">{baseData.teams[0].name}</span>
+                            <span className="text-xs text-muted-foreground">{baseData.teams[0].plan}</span>
+                        </div>
+                    </div>
+                </div>
             </SidebarHeader>
-            <SidebarContent>
+            <SidebarContent className="py-4">
                 <nav className="flex flex-col gap-4">
                     <NavMain items={navItems} />
                 </nav>
             </SidebarContent>
-            <SidebarFooter>
+            <SidebarFooter className="py-2">
                 <NavUser user={baseData.user} />
             </SidebarFooter>
         </Sidebar>

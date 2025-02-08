@@ -82,7 +82,7 @@ const RecursiveMenuItem = ({
                     className="w-full"
                 >
                     <SidebarMenuButton className="w-full group hover:bg-accent hover:text-accent-foreground">
-                        <div className="flex items-center gap-2 w-full">
+                        <div className="flex items-center gap-2 w-full px-2">
                             {item.icon && <item.icon className="h-4 w-4 flex-shrink-0" />}
                             <span className="flex-1 truncate text-sm">
                                 {item.title}
@@ -100,24 +100,31 @@ const RecursiveMenuItem = ({
                 <div>
                     <CollapsibleTrigger asChild>
                         <SidebarMenuButton tooltip={item.title} className="w-full">
-                            {item.icon && <item.icon className="h-4 w-4 flex-shrink-0" />}
-                            <span className="flex-1 truncate">{item.title}</span>
-                            <ChevronRight className="ml-auto h-4 w-4 flex-shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                            <div className="flex items-center gap-2 w-full px-2">
+                                {item.icon && <item.icon className="h-4 w-4 flex-shrink-0" />}
+                                <span className="flex-1 truncate">{item.title}</span>
+                                <ChevronRight className="ml-auto h-4 w-4 flex-shrink-0 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                            </div>
                         </SidebarMenuButton>
                     </CollapsibleTrigger>
 
                     <CollapsibleContent className="w-full">
-                        <SidebarMenuSub>
+                        <div className="pl-6">
                             {item.items?.map((subItem) => (
                                 <div key={subItem.title} className="w-full">
-                                    <RecursiveMenuItem
-                                        item={subItem}
-                                        level={level + 1}
-                                        handleTabChange={handleTabChange}
-                                    />
+                                    <div
+                                        onClick={() => handleTabChange(subItem.title, subItem.title, subItem.url ? `/${tenantId}/${subItem.url}` : undefined, subItem.component)}
+                                        className="w-full"
+                                    >
+                                        <SidebarMenuButton className="w-full group hover:bg-accent hover:text-accent-foreground py-1">
+                                            <span className="flex-1 truncate text-sm px-2">
+                                                {subItem.title}
+                                            </span>
+                                        </SidebarMenuButton>
+                                    </div>
                                 </div>
                             ))}
-                        </SidebarMenuSub>
+                        </div>
                     </CollapsibleContent>
                 </div>
             </Collapsible>
@@ -137,7 +144,6 @@ export const NavMain = ({ items = [] }: { items?: NavItem[] }) => {
     ];
     const { addTab, setActiveTab, tabs, setTabFilter } = useTabStore()
     const {selectedFilter,setFilter} = useFilterStore();
-    const [searchQuery, setSearchQuery] = useState("");
 
     const handleTabChange = (id: string, title: string, url?: string, component?: React.ComponentType<any>) => {
         // Dashboard için özel kontrol
@@ -202,52 +208,20 @@ export const NavMain = ({ items = [] }: { items?: NavItem[] }) => {
             setFilter(defaultFilter);
         }
     }
-    const searchItems = (items: NavItem[], query: string): NavItem[] => {
-        return items.map(item => {
-            const matchesSearch = item.title.toLowerCase().includes(query.toLowerCase());
-            const hasMatchingChildren = item.items && searchItems(item.items, query).length > 0;
-
-            if (matchesSearch || hasMatchingChildren) {
-                return {
-                    ...item,
-                    items: item.items ? searchItems(item.items, query) : undefined,
-                    expanded: query ? true : item.expanded
-                };
-            }
-            return null;
-        }).filter(Boolean) as NavItem[];
-    };
-
-    const filteredItems = useMemo(() => {
-        if (!searchQuery) return items;
-        return searchItems(items, searchQuery);
-    }, [items, searchQuery]);
 
     return (
-        <Sidebar>
-            <SidebarGroup showSearch={false}>
-                <div className="px-2 mb-4">
-                    <input
-                        type="text"
-                        placeholder="Menüde ara..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="w-full px-3 py-2 text-sm rounded-md bg-muted/50 border border-border/50 focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/30 transition-colors"
-                    />
-                </div>
-                <SidebarGroupLabel>Platform</SidebarGroupLabel>
-                <SidebarMenu className="w-full">
-                    {filteredItems.length > 0 ? filteredItems.map((item) => (
-                        <div key={item.title} className="w-full">
-                            <RecursiveMenuItem
-                                item={item}
-                                handleTabChange={handleTabChange}
-                            />
-                        </div>
-                    )) : null}
-                </SidebarMenu>
-            </SidebarGroup>
-        </Sidebar>
+        <div className="flex flex-col w-full mt-6">
+            <div className="w-full space-y-1">
+                {defaultItems.map((item) => (
+                    <div key={item.title} className="w-full">
+                        <RecursiveMenuItem
+                            item={item}
+                            handleTabChange={handleTabChange}
+                        />
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 };
 
