@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSections } from './hooks/useSections';
 import { ErrorDisplay } from './components/ErrorDisplay';
 import { SectionManager } from './components/SectionManager';
@@ -21,65 +21,76 @@ export default function TablesPage() {
         setShowAddSection(true);
     };
 
-    const handleEditTable = (table: Table, sectionId: number) => {
+    const handleEditTable = (table: Table, section: Section) => {
         setSelectedTable(table);
-        setSelectedSectionId(sectionId.toString());
+        setSelectedSection(section);
         setShowAddTable(true);
     };
 
-    const handleAddTable = (sectionId: number) => {
-        setSelectedSectionId(sectionId.toString());
+    const handleAddTable = (section: Section) => {
+        setSelectedSection(section);
         setShowAddTable(true);
     };
 
     return (
-        <div className="container mx-auto px-4 py-6 pb-24 h-screen overflow-auto">
-            <ErrorDisplay error={error} onClose={() => setError(null)} />
-
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold">Masa Yönetimi</h1>
-                <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
-                    onClick={() => {
-                        setSelectedSection(null);
-                        setShowAddSection(true);
-                    }}
-                >
-                    Yeni Bölüm Ekle
-                </button>
+        <Suspense fallback={
+            <div className="flex items-center justify-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600"></div>
+                <span className="ml-3 text-lg text-gray-600">Yükleniyor...</span>
             </div>
+        }>
+            <div className="container mx-auto px-4 py-6 pb-24 h-screen overflow-auto">
+                <ErrorDisplay error={error} onClose={() => setError(null)} />
 
-            <SectionManager 
-                onSectionUpdate={fetchSections}
-                showAddSection={showAddSection}
-                setShowAddSection={setShowAddSection}
-                selectedSection={selectedSection}
-                setSelectedSection={setSelectedSection}
-            />
-            
-            <TableManager 
-                sections={sections}
-                categories={categories}
-                onTableUpdate={fetchSections}
-                showAddTable={showAddTable}
-                setShowAddTable={setShowAddTable}
-                selectedTable={selectedTable}
-                setSelectedTable={setSelectedTable}
-                selectedSectionId={selectedSectionId}
-            />
-
-            {loading ? (
-                <div className="flex justify-center items-center h-64">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+                <div className="flex justify-between items-center mb-6">
+                    <h1 className="text-2xl font-bold">Masa Yönetimi</h1>
+                    <button
+                        className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                        onClick={() => {
+                            setSelectedSection(null);
+                            setShowAddSection(true);
+                        }}
+                    >
+                        Yeni Bölüm Ekle
+                    </button>
                 </div>
-            ) : (
-                <SectionList
-                    sections={sections}
-                    onEditSection={handleEditSection}
-                    onAddTable={handleAddTable}
-                    onEditTable={handleEditTable}
-                />
-            )}
-        </div>
+
+                {sections.length === 0 && !loading ? (
+                    <div className="text-center text-gray-600 mt-8">
+                        Henüz hiç bölüm eklenmemiş
+                    </div>
+                ) : (
+                    <SectionList
+                        sections={sections}
+                        onEditSection={handleEditSection}
+                        onEditTable={handleEditTable}
+                        onAddTable={handleAddTable}
+                    />
+                )}
+
+                {showAddSection && (
+                    <SectionManager
+                        onSectionUpdate={fetchSections}
+                        showAddSection={showAddSection}
+                        setShowAddSection={setShowAddSection}
+                        selectedSection={selectedSection}
+                        setSelectedSection={setSelectedSection}
+                    />
+                )}
+
+                {showAddTable && selectedSection && (
+                    <TableManager
+                        sections={sections}
+                        categories={categories}
+                        onTableUpdate={fetchSections}
+                        showAddTable={showAddTable}
+                        setShowAddTable={setShowAddTable}
+                        selectedTable={selectedTable}
+                        setSelectedTable={setSelectedTable}
+                        selectedSection={selectedSection}
+                    />
+                )}
+            </div>
+        </Suspense>
     );
 }

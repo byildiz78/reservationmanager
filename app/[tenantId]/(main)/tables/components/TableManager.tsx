@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TableForm } from './TableForm';
 import { Table, Section, Category, TableFormData } from '../types';
+import api from '@/lib/axios';
 
 interface TableManagerProps {
     sections: Section[];
@@ -10,7 +11,7 @@ interface TableManagerProps {
     setShowAddTable: (show: boolean) => void;
     selectedTable: Table | null;
     setSelectedTable: (table: Table | null) => void;
-    selectedSectionId?: string;
+    selectedSection: Section | null;
 }
 
 export function TableManager({ 
@@ -21,9 +22,10 @@ export function TableManager({
     setShowAddTable,
     selectedTable,
     setSelectedTable,
-    selectedSectionId
+    selectedSection
 }: TableManagerProps) {
     const [formLoading, setFormLoading] = useState(false);
+    const [formDataLoading, setFormDataLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [tableForm, setTableForm] = useState<TableFormData>({
         table_name: '',
@@ -31,31 +33,63 @@ export function TableManager({
         status: 'available',
         location: '',
         is_active: true,
-        section_id: selectedSectionId,
-        category_id: '',
+        section_id: selectedSection?.section_id || 0,
+        category_id: 0,
         min_reservation_time: 60,
         max_reservation_time: 180,
         reservation_interval: 15
     });
 
     useEffect(() => {
-        if (selectedTable) {
+        // Form açıldığında ve selectedTable null ise, formu sıfırla ve seçili section'ı ayarla
+        if (showAddTable && !selectedTable) {
             setTableForm({
+                table_name: '',
+                capacity: 0,
+                status: 'available',
+                location: '',
+                is_active: true,
+                section_id: selectedSection?.section_id || 0,
+                category_id: 0,
+                min_reservation_time: 60,
+                max_reservation_time: 180,
+                reservation_interval: 15
+            });
+        }
+    }, [showAddTable, selectedTable, selectedSection]);
+
+    useEffect(() => {
+        // Sadece selectedTable değiştiğinde formu güncelle
+        if (selectedTable) {
+            setFormDataLoading(true);
+            const newFormData = {
                 table_name: selectedTable.table_name,
                 capacity: selectedTable.capacity,
                 status: selectedTable.status,
                 location: selectedTable.location || '',
                 is_active: selectedTable.is_active,
-                section_id: selectedTable.section_id?.toString(),
-                category_id: selectedTable.category_id?.toString(),
-                min_reservation_time: selectedTable.min_reservation_time,
-                max_reservation_time: selectedTable.max_reservation_time,
-                reservation_interval: selectedTable.reservation_interval
-            });
-        } else {
-            resetTableForm();
+                section_id: selectedSection?.section_id || 0,
+                category_id: selectedTable.category_id || 0,
+                min_reservation_time: selectedTable.min_reservation_time || 60,
+                max_reservation_time: selectedTable.max_reservation_time || 180,
+                reservation_interval: selectedTable.reservation_interval || 15
+            };
+            setTableForm(newFormData);
+            // Kısa bir gecikme ekleyerek loading state'in görünür olmasını sağlıyoruz
+            setTimeout(() => {
+                setFormDataLoading(false);
+            }, 500);
         }
-    }, [selectedTable, selectedSectionId]);
+    }, [selectedTable, selectedSection]);
+
+    useEffect(() => {
+        if (selectedSection) {
+            setTableForm(prev => ({
+                ...prev,
+                section_id: selectedSection.section_id
+            }));
+        }
+    }, [selectedSection]);
 
     const handleAddTable = async () => {
         try {
@@ -68,36 +102,40 @@ export function TableManager({
             if (!tableForm.section_id) {
                 throw new Error('Lütfen bir bölüm seçin');
             }
+            if (!tableForm.category_id) {
+                throw new Error('Lütfen bir kategori seçin');
+            }
             if (tableForm.capacity <= 0) {
                 throw new Error('Kapasite 0\'dan büyük olmalıdır');
             }
 
-            const response = await fetch('/franchisemanager/api/postgres/add-table', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(tableForm),
-            });
+            // API isteği için verileri hazırla
+            const apiData = {
+                ...tableForm,
+                section_id: tableForm.section_id,
+                category_id: tableForm.category_id,
+                branch_id: 1 // TODO: Get from context or props
+            };
 
-            const data = await response.json();
+            const response = await api.post('/api/postgres/tables', apiData);
             
-            if (data.success) {
+            if (response.data.success) {
                 await onTableUpdate();
                 setShowAddTable(false);
-                resetTableForm();
+                setSelectedTable(null);
+                setError(null);
             } else {
-                throw new Error(data.error || 'Masa eklenirken bir hata oluştu');
+                throw new Error(response.data.error || 'Masa eklenirken bir hata oluştu');
             }
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Masa eklenirken bir hata oluştu');
-            console.error('Add Table Error:', error);
+        } catch (err: any) {
+            setError(err.message || 'Bir hata oluştu');
+            console.error('Add Table Error:', err);
         } finally {
             setFormLoading(false);
         }
     };
 
-    const handleEditTable = async () => {
+    const handleUpdateTable = async () => {
         if (!selectedTable) return;
 
         try {
@@ -110,53 +148,54 @@ export function TableManager({
             if (!tableForm.section_id) {
                 throw new Error('Lütfen bir bölüm seçin');
             }
+            if (!tableForm.category_id) {
+                throw new Error('Lütfen bir kategori seçin');
+            }
             if (tableForm.capacity <= 0) {
                 throw new Error('Kapasite 0\'dan büyük olmalıdır');
             }
 
-            const response = await fetch('/franchisemanager/api/postgres/update-table', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    ...tableForm,
-                    table_id: selectedTable.table_id
-                }),
-            });
+            // API isteği için verileri hazırla
+            const apiData = {
+                ...tableForm,
+                section_id: tableForm.section_id,
+                category_id: tableForm.category_id,
+                branch_id: 1, // TODO: Get from context or props
+                table_id: selectedTable.table_id
+            };
 
-            const data = await response.json();
+            const response = await api.put(`/api/postgres/tables/${selectedTable.table_id}`, apiData);
             
-            if (data.success) {
+            if (response.data.success) {
                 await onTableUpdate();
                 setShowAddTable(false);
                 setSelectedTable(null);
-                resetTableForm();
+                setError(null);
             } else {
-                throw new Error(data.error || 'Masa güncellenirken bir hata oluştu');
+                throw new Error(response.data.error || 'Masa güncellenirken bir hata oluştu');
             }
-        } catch (error) {
-            setError(error instanceof Error ? error.message : 'Masa güncellenirken bir hata oluştu');
-            console.error('Update Table Error:', error);
+        } catch (err: any) {
+            setError(err.message || 'Bir hata oluştu');
+            console.error('Update Table Error:', err);
         } finally {
             setFormLoading(false);
         }
     };
 
-    const resetTableForm = () => {
+    const resetTableForm = useCallback(() => {
         setTableForm({
             table_name: '',
             capacity: 0,
             status: 'available',
             location: '',
             is_active: true,
-            section_id: selectedSectionId,
-            category_id: '',
+            section_id: selectedSection?.section_id || 0,
+            category_id: 0,
             min_reservation_time: 60,
             max_reservation_time: 180,
             reservation_interval: 15
         });
-    };
+    }, [selectedSection]);
 
     return (
         <>
@@ -165,7 +204,7 @@ export function TableManager({
                     formData={tableForm}
                     sections={sections}
                     categories={categories}
-                    onSubmit={selectedTable ? handleEditTable : handleAddTable}
+                    onSubmit={selectedTable ? handleUpdateTable : handleAddTable}
                     onCancel={() => {
                         setShowAddTable(false);
                         setSelectedTable(null);
@@ -173,8 +212,9 @@ export function TableManager({
                         resetTableForm();
                     }}
                     onChange={setTableForm}
-                    title={selectedTable ? "Masa Düzenle" : "Yeni Masa Ekle"}
-                    loading={formLoading}
+                    title={selectedTable ? 'Masa Düzenle' : 'Yeni Masa Ekle'}
+                    formLoading={formLoading}
+                    dataLoading={formDataLoading}
                 />
             )}
         </>

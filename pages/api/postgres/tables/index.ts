@@ -11,8 +11,8 @@ export default async function handler(
 
             try {
                 const result = await client.query(`
-                    SELECT * FROM sections
-                    ORDER BY section_name
+                    SELECT * FROM tables
+                    ORDER BY table_name
                 `);
 
                 return res.status(200).json({
@@ -23,7 +23,7 @@ export default async function handler(
                 client.release();
             }
         } catch (error) {
-            console.error('Error in get sections:', error);
+            console.error('Error in get tables:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -32,61 +32,74 @@ export default async function handler(
     } else if (req.method === 'POST') {
         try {
             const {
-                section_name,
-                description,
+                table_name,
                 capacity,
-                is_smoking,
-                is_outdoor,
-                is_vip,
+                status,
+                location,
                 is_active,
-                order_number,
+                section_id,
+                category_id,
+                min_reservation_time,
+                max_reservation_time,
+                reservation_interval,
                 branch_id
             } = req.body;
 
-            if (!section_name) {
+            if (!table_name || !capacity || !section_id || !category_id || !branch_id) {
                 return res.status(400).json({
                     success: false,
-                    error: 'Section name is required'
+                    error: 'Required fields are missing'
                 });
             }
 
             const client = await pool.connect();
 
             try {
+                await client.query('BEGIN');
+
                 const result = await client.query(`
-                    INSERT INTO sections (
-                        section_name,
-                        description,
+                    INSERT INTO tables (
+                        table_name,
                         capacity,
-                        is_smoking,
-                        is_outdoor,
-                        is_vip,
+                        status,
+                        location,
                         is_active,
-                        order_number,
+                        section_id,
+                        category_id,
+                        min_reservation_time,
+                        max_reservation_time,
+                        reservation_interval,
                         branch_id
-                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                     RETURNING *
                 `, [
-                    section_name,
-                    description,
+                    table_name,
                     capacity,
-                    is_smoking,
-                    is_outdoor,
-                    is_vip,
+                    status,
+                    location,
                     is_active,
-                    order_number,
+                    section_id,
+                    category_id,
+                    min_reservation_time,
+                    max_reservation_time,
+                    reservation_interval,
                     branch_id
                 ]);
+
+                await client.query('COMMIT');
 
                 return res.status(201).json({
                     success: true,
                     data: result.rows[0]
                 });
+            } catch (error) {
+                await client.query('ROLLBACK');
+                throw error;
             } finally {
                 client.release();
             }
         } catch (error) {
-            console.error('Error in create section:', error);
+            console.error('Error in create table:', error);
             return res.status(500).json({
                 success: false,
                 error: 'Internal server error'

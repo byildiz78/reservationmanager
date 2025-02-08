@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { SectionForm } from './SectionForm';
 import { Section, SectionFormData } from '../types';
+import api from '@/lib/axios';
 
 interface SectionManagerProps {
     onSectionUpdate: () => Promise<void>;
@@ -52,15 +53,12 @@ export function SectionManager({
             setFormLoading(true);
             setError(null);
 
-            const response = await fetch('/franchisemanager/api/postgres/add-section', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(sectionForm),
+            const response = await api.post('/api/postgres/sections', {
+                ...sectionForm,
+                branch_id: 1
             });
-
-            const data = await response.json();
+            
+            const data = response.data;
             
             if (data.success) {
                 await onSectionUpdate();
@@ -84,18 +82,12 @@ export function SectionManager({
             setFormLoading(true);
             setError(null);
 
-            const response = await fetch('/franchisemanager/api/postgres/update-section', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    ...sectionForm,
-                    section_id: selectedSection.section_id
-                }),
+            const response = await api.put(`/api/postgres/sections/${selectedSection.section_id}`, {
+                ...sectionForm,
+                branch_id: 1
             });
-
-            const data = await response.json();
+            
+            const data = response.data;
             
             if (data.success) {
                 await onSectionUpdate();
@@ -107,7 +99,7 @@ export function SectionManager({
             }
         } catch (error) {
             setError(error instanceof Error ? error.message : 'Bölüm güncellenirken bir hata oluştu');
-            console.error('Update Section Error:', error);
+            console.error('Edit Section Error:', error);
         } finally {
             setFormLoading(false);
         }
@@ -140,7 +132,7 @@ export function SectionManager({
                     }}
                     onChange={setSectionForm}
                     title={selectedSection ? "Bölüm Düzenle" : "Yeni Bölüm Ekle"}
-                    loading={formLoading}
+                    formLoading={formLoading}
                 />
             )}
         </>

@@ -42,8 +42,10 @@ export interface Section {
 }
 
 export interface Category {
-    id: number;
-    name: string;
+    category_id: number;
+    category_name: string;
+    min_capacity?: number;
+    max_capacity?: number;
 }
 
 export interface SectionFormData {
@@ -61,11 +63,11 @@ export interface TableFormData {
     table_name: string;
     capacity: number;
     status: "available" | "reserved" | "occupied";
-    location?: string;
+    location: string;
     is_active: boolean;
-    section_id?: string;
-    category_id?: string;
-    min_reservation_time?: number;
-    max_reservation_time?: number;
-    reservation_interval?: number;
+    section_id: number;
+    category_id: number;
+    min_reservation_time: number;
+    max_reservation_time: number;
+    reservation_interval: number;
 }

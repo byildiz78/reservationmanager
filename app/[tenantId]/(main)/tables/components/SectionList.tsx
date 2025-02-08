@@ -56,8 +56,8 @@ interface ApiResponse {
 interface SectionListProps {
     sections: Section[];
     onEditSection: (section: Section) => void;
-    onAddTable: (sectionId: number) => void;
-    onEditTable: (table: Table, sectionId: number) => void;
+    onAddTable: (section: Section) => void;
+    onEditTable: (table: Table, section: Section) => void;
 }
 
 export const SectionList: React.FC<SectionListProps> = ({
@@ -181,16 +181,18 @@ export const SectionList: React.FC<SectionListProps> = ({
                                         )}
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4">
+                                <div className="flex items-center space-x-2">
                                     <Button
                                         variant="outline"
-                                        size="icon"
+                                        size="sm"
                                         onClick={() => onEditSection(section)}
                                     >
                                         <PencilIcon className="h-4 w-4" />
                                     </Button>
                                     <Button
-                                        onClick={() => onAddTable(section.section_id)}
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => onAddTable(section)}
                                     >
                                         Masa Ekle
                                     </Button>
@@ -200,7 +202,7 @@ export const SectionList: React.FC<SectionListProps> = ({
                         {section.tables.length > 0 ? (
                             <TableList 
                                 tables={section.tables} 
-                                onEditTable={(table) => onEditTable(table, section.section_id)} 
+                                onEditTable={(table) => onEditTable(table, section)}
                             />
                         ) : (
                             <div className="p-8 text-center text-gray-500">

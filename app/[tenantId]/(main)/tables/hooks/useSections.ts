@@ -11,29 +11,30 @@ export const useSections = () => {
     const params = useParams();
 
     const fetchSections = async () => {
+        if (!loading) setLoading(true);
+        
         try {
             const [sectionsResponse, categoriesResponse] = await Promise.all([
                 api.get(`/api/postgres/list-sections`),
                 api.get(`/api/postgres/table-categories`)
             ]);
 
-            const sectionsData = await sectionsResponse.data;
-            const categoriesData = await categoriesResponse.data;
-            
-            if (sectionsData.success) {
-                setSections(sectionsData.data);
-            } else {
-                setError(sectionsData.error || 'Bölümler yüklenirken bir hata oluştu');
+            if (!sectionsResponse.data.success) {
+                throw new Error(sectionsResponse.data.error || 'Bölümler yüklenirken bir hata oluştu');
             }
-            
-            if (categoriesData.success) {
-                setCategories(categoriesData.data);
-            } else {
-                setError(categoriesData.error || 'Kategoriler yüklenirken bir hata oluştu');
+
+            if (!categoriesResponse.data.success) {
+                throw new Error(categoriesResponse.data.error || 'Kategoriler yüklenirken bir hata oluştu');
             }
-        } catch (error) {
-            setError('Veriler yüklenirken bir hata oluştu');
-            console.error('Fetch Error:', error);
+
+            setSections(sectionsResponse.data.data);
+            setCategories(categoriesResponse.data.data);
+            setError(null);
+        } catch (err) {
+            console.error('Fetch Error:', err);
+            setError(err instanceof Error ? err.message : 'Veriler yüklenirken bir hata oluştu');
+            setSections([]);
+            setCategories([]);
         } finally {
             setLoading(false);
         }
