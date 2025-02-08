@@ -185,7 +185,7 @@ export default function ReservationsPage() {
                   }`}
               >
                 <CalendarDaysIcon className="w-4 h-4" />
-                Liste
+                Kart
               </button>
               <button
                 onClick={() => setActiveTab("report")}
@@ -196,7 +196,7 @@ export default function ReservationsPage() {
                   }`}
               >
                 <ChartBarIcon className="w-4 h-4" />
-                Rapor
+                Liste
               </button>
             </div>
           </div>
