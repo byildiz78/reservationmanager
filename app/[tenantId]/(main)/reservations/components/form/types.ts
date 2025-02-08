@@ -4,25 +4,28 @@ export type ServiceType = "standart" | "vip" | "özel";
 export type ReservationStatus = "pending" | "awaiting_payment" | "payment_received" | "confirmed" | "customer_arrived" | "customer_no_show" | "customer_cancelled";
 
 export interface Section {
-  id?: number;
-  section_id?: number;
-  name?: string;
-  section_name?: string;
+  section_id: number;
+  section_name: string;
   description?: string;
-  section_description?: string;
+  capacity?: number;
+  is_smoking?: boolean;
+  is_outdoor?: boolean;
+  is_active?: boolean;
+  tables?: Table[];
 }
 
 export interface Table {
-  id?: number;
-  table_id?: number;
-  name?: string;
-  table_name?: string;
+  table_id: number;
+  table_name: string;
   capacity?: number;
-  table_capacity?: number;
   status?: string;
-  table_status?: string;
-  section?: number;
-  section_id?: number;
+  shape?: 'square' | 'circle' | 'rectangle';
+  position?: { x: number; y: number };
+  size?: { width: number; height: number };
+  category_name?: string;
+  min_capacity?: number;
+  max_capacity?: number;
+  reservation_status?: 'reserved' | 'occupied' | 'available';
 }
 
 export interface FormData {
@@ -31,8 +34,10 @@ export interface FormData {
   date: Date;
   time: string;
   persons: string;
-  tableId: string;
-  sectionId: string;
+  tableId: string | null;
+  tableName: string;
+  sectionId: string | null;
+  sectionName: string;
   type: 'normal' | 'vip';
   serviceType: 'standart' | 'special';
   notes: string;

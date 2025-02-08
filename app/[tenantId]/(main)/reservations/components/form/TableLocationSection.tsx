@@ -37,11 +37,15 @@ export function TableLocationSection({
           Bölüm
         </Label>
         <Select
-          value={formData.sectionId || ''}
+          value={formData.sectionId === null ? '' : formData.sectionId}
           onValueChange={(value) => {
             console.log('Section selected:', value);
-            onFieldChange("sectionId", value);
+            onFieldChange("sectionId", value || null);
             onFieldChange("sectionName", sections.find(s => String(s.section_id) === value)?.section_name || '');
+            
+            // Log section selection
+            const selectedSection = sections.find(s => String(s.section_id) === value);
+            console.log('Selected section:', selectedSection);
           }}
         >
           <SelectTrigger className="w-full h-11 bg-muted/50">
@@ -68,7 +72,7 @@ export function TableLocationSection({
           Masa
         </Label>
         <Select
-          value={formData.tableId || ''}
+          value={formData.tableId === null ? '' : formData.tableId}
           onValueChange={(value) => {
             console.log('Table selected:', value);
             onTableChange(value);

@@ -30,9 +30,9 @@ const defaultFormData: FormData = {
   date: new Date(),
   time: format(new Date(), 'HH:mm'),
   persons: "2",
-  tableId: "",
+  tableId: null,
   tableName: "",
-  sectionId: "",
+  sectionId: null,
   sectionName: "",
   type: "normal",
   serviceType: "standart",
@@ -73,7 +73,14 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
 
       // Ensure we're setting arrays for both tables and sections
       const tablesData = Array.isArray(tablesRes.data) ? tablesRes.data : [];
-      const sectionsData = Array.isArray(sectionsRes.data) ? sectionsRes.data : [];
+      const sectionsData = Array.isArray(sectionsRes.data.data) ? sectionsRes.data.data.map((section: any) => ({
+        section_id: section.section_id,
+        section_name: section.section_name,
+        description: section.description,
+        tables: section.tables
+      })) : [];
+
+      console.log('Processed sections data:', sectionsData);
 
       // Set the tables and sections data first
       setTables(tablesData);
@@ -159,10 +166,13 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
           isSmoking: initialData.is_smoking || false,
           isOutdoor: initialData.is_outdoor || false,
           isVip: initialData.is_vip || false,
-          tableId: String(effectiveTableId || ''),
-          tableName: effectiveTableName,
-          sectionId: String(effectiveSectionId || ''),
-          sectionName: effectiveSectionName
+          tableId: initialData.table?.table_id ? String(initialData.table.table_id) : null,
+          tableName: initialData.table?.table_name || "",
+          sectionId: initialData.section?.id ? String(initialData.section.id) : null,
+          sectionName: initialData.section?.name || "",
+          type: "normal",
+          serviceType: "standart",
+          specialRequests: ""
         });
       }
     } catch (error) {
@@ -196,14 +206,29 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
 
   useEffect(() => {
     if (formData.sectionId) {
-      const sectionTables = tables.filter(table => 
-        String(table.section_id) === formData.sectionId
-      );
-      setFilteredTables(sectionTables);
+      // Find the selected section
+      const selectedSection = sections.find(s => String(s.section_id) === formData.sectionId);
+      
+      // Get tables for the selected section
+      if (selectedSection?.tables) {
+        setFilteredTables(selectedSection.tables.map(table => ({
+          table_id: table.table_id,
+          table_name: table.table_name,
+          table_capacity: table.capacity,
+          table_status: table.status
+        })));
+      } else {
+        setFilteredTables([]);
+      }
+
+      console.log('Updated filtered tables for section:', {
+        sectionId: formData.sectionId,
+        tables: selectedSection?.tables
+      });
     } else {
       setFilteredTables([]);
     }
-  }, [formData.sectionId, tables]);
+  }, [formData.sectionId, sections]);
 
   const handleFieldChange = (field: keyof FormData, value: FormData[keyof FormData]) => {
     setFormData(prevData => ({ ...prevData, [field]: value }));
@@ -247,8 +272,8 @@ export function ReservationFormModal({ isOpen, onClose, initialData, onUpdate }:
         is_smoking: formData.isSmoking,
         is_outdoor: formData.isOutdoor,
         is_vip: formData.isVip,
-        table_id: Number(formData.tableId) || null,
-        section_id: Number(formData.sectionId) || null
+        table_id: formData.tableId ? Number(formData.tableId) : null,
+        section_id: formData.sectionId ? Number(formData.sectionId) : null
       };
 
       if (initialData?.id) {
