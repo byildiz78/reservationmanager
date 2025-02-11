@@ -10,14 +10,17 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import api from '@/lib/axios';
+import { useState } from "react";
+import { PaymentLinkModal } from "./PaymentLinkModal";
 
 interface ReservationActionsProps {
   reservationId: number;
   onEdit: () => void;
   onUpdate?: () => void;
+  phoneNumber: string;
 }
 
-export function ReservationActions({ reservationId, onEdit, onUpdate }: ReservationActionsProps) {
+export function ReservationActions({ reservationId, onEdit, onUpdate, phoneNumber }: ReservationActionsProps) {
   const handleStatusUpdate = async (status: string) => {
     try {
       const response = await api.put(`/api/postgres/update-reservation?reservationId=${reservationId}`, {
@@ -52,11 +55,10 @@ export function ReservationActions({ reservationId, onEdit, onUpdate }: Reservat
     }
   };
 
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+
   const handleSendPaymentLink = () => {
-    toast({
-      title: 'Ödeme linki gönderildi',
-      description: 'Ödeme linki müşteriye SMS olarak gönderildi.',
-    });
+    setIsPaymentModalOpen(true);
   };
 
   const handleSendSMS = () => {
@@ -157,6 +159,13 @@ export function ReservationActions({ reservationId, onEdit, onUpdate }: Reservat
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+
+      <PaymentLinkModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        phoneNumber={phoneNumber}
+        reservationId={reservationId}
+      />
     </div>
   );
 }
